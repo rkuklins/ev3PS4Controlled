@@ -1,83 +1,132 @@
 #!/usr/bin/env pybricks-micropython
 
-from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor,
-                                 InfraredSensor, UltrasonicSensor, GyroSensor)
+from pybricks.hubs import EV3Brick
+from PS4Controller import PS4Controller
 from pybricks.parameters import (Port, Stop, Direction, Button, Color,
                                  SoundFile, ImageFile, Align)
-from pybricks.tools import print, wait, StopWatch
-from pybricks.hubs import EV3Brick
 
-import struct
+from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor,
+                                 InfraredSensor, UltrasonicSensor, GyroSensor)
 
-# Declare motors 
-#left_motor = Motor(Port.B)
-#right_motor = Motor(Port.C)
-#steer_motor = Motor(Port.A)
-forward = 0
-left = 0
+import sys
+import math
+from time import sleep
 
-
-# Auto center steering wheels.
-#steer_motor.run_until_stalled(250)
-#steer_motor.reset_angle(80)
-#steer_motor.run_target(300,0)
-
-
-# A helper function for converting stick values (0 - 255)
-# to more usable numbers (-100 - 100)
-def scale(val, src, dst):
-    """
-    Scale the given value from the scale of src to the scale of dst.
- 
-    val: float or int
-    src: tuple
-    dst: tuple
- 
-    example: print(scale(99, (0.0, 99.0), (-1.0, +1.0)))
-    """
-    return (float(val-src[0]) / (src[1]-src[0])) * (dst[1]-dst[0])+dst[0]
-
-
-# Open the Gamepad event file:
-# /dev/input/event3 is for PS3 gamepad
-# /dev/input/event4 is for PS4 gamepad
-# look at contents of /proc/bus/input/devices if either one of them doesn't work.
-# use 'cat /proc/bus/input/devices' and look for the event file.
-infile_path = "/dev/input/event4"
-
-# open file in binary mode
-in_file = open(infile_path, "rb")
-
-# Read from the file
-# long int, long int, unsigned short, unsigned short, unsigned int
-FORMAT = 'llHHI'    
-EVENT_SIZE = struct.calcsize(FORMAT)
-event = in_file.read(EVENT_SIZE)
+# Your code here
 ev3 = EV3Brick()
+steer_motor = Motor(Port.A) 
+drive_motor = Motor(Port.B)
+#turret_motor = Motor(Port.C)
+last_angle = 5 
 
-while event:
+def doit(value):
+    """
+    Perform the specified action.
 
-    (tv_sec, tv_usec, ev_type, code, value) = struct.unpack(FORMAT, event)
+    Args:
+        value: The value to be used for the action.
 
-    if ev_type == 3 and code == 1:
-        left = scale(value, (0,255), (-100,100))
-        #print("Left X1: " + str(left))
-        #forward = scale(value, (0,255), (-100,100))
-        #print("X1: " + str(forward))
-    if ev_type == 3 and code == 0:
-        left = scale(value, (0,255), (-100,100))
-        #print("Left Y1: " + str(left))
+    Returns:
+        None
+    """
+    ev3.speaker.say("Fire")
 
-    if ev_type != 3 and ev_type != 0:
-        print("Event type %u, code %u, value %u at %d.%d" % \
-            (ev_type, code, value, tv_sec, tv_usec))
-    if ev_type == 1:
-        print("Button: " + str(code) + " Value: " + str(value));
+def quit(value):
+    value.stop()                                                  
+
+def move(value): 
+    """
+    Moves the steer motor based on the provided value.
+
+    Args:
+        value: The value to control the steer motor.
+
+    Returns:
+        None
+    """
+    steer_motor.run(value.l_left)
+
+def watch(value):
+    global last_angle  
+
+    drive_motor.run(value.r_left*10)
+
+    """
+    result = 0;
+    val_x = value.r_left * -1;
+    val_y = value.r_forward;
     
-        if code == 304 and value == 1:
-            ev3.speaker.say("Fire")
+    if(abs(val_x) < 10 and abs(val_y) < 10):
+        return
+    if(val_x == 0):
+        return;
 
-    # Finally, read another eventx``
-    event = in_file.read(EVENT_SIZE)
+    quadrant = 1;
+    if (val_x < 0 and val_y < 0):
+        quadrant = 3
+        #result_degrees = result_degrees_orig + 180
+        result = math.atan(abs(val_x) / abs(val_y))
+    elif(val_y < 0):
+        quadrant = 2
+        #result_degrees = result_degrees_orig + 90
+        result = math.atan(abs(val_y) / abs(val_x))
+    elif(val_x < 0):
+        quadrant = 4
+        #result_degrees = result_degrees_orig + 270
+        result = math.atan(abs(val_y) / abs(val_x))
+    else:
+        quadrant = 1
+        result = math.atan(abs(val_x) / abs(val_y))
 
-in_file.close()
+    result_degrees_orig = math.degrees(result)
+    result_degrees = result_degrees_orig
+
+    if(quadrant == 3):
+        result_degrees = result_degrees_orig + 180
+    elif(quadrant==2):
+        result_degrees = result_degrees_orig + 90
+    elif(quadrant == 4):
+        result_degrees = result_degrees_orig + 270
+
+    #TODO: Need to improve shift not to move by small 5 degrees move if this is a move by 30 degrees. This requries to add some intertia to the move
+    angle_shift = abs(result_degrees - last_angle);
+    speed = 360;
+    result_degrees_final = result_degrees;
+    if(angle_shift > 180):
+        if(result_degrees > last_angle):
+            diff = result_degrees - last_angle;
+            diff = diff - 360;
+            result_degrees_final = last_angle + diff;
+        else:
+            diff = result_degrees - last_angle;
+            diff = diff + 360;
+            result_degrees_final = last_angle + diff;
+
+        print("Shift is greater than 180:" + str(result_degrees_final))
+        speed = -1 * speed;
+    
+
+
+    if(angle_shift < 5):
+        return
+
+    print(str(result_degrees_final) + " from " + str(last_angle) + " shift: " + str(angle_shift) + " speed: " + str(speed))
+
+    drive_motor.track_target(result_degrees_final)
+    last_angle = result_degrees;
+    """
+
+def main():
+
+    controller = PS4Controller()
+
+    controller.onCrossButton(doit)
+    controller.onOptionsButton(quit)
+    controller.onLeftJoystickMove(move)
+    controller.onRightJoystickMove(watch)
+    controller.start()
+
+    #Wait for controller thread to finish
+    #controller.join()
+
+main()
