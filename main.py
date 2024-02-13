@@ -2,6 +2,7 @@
 
 from pybricks.hubs import EV3Brick
 from PS4Controller import PS4Controller
+from RemoteController import RemoteController
 from pybricks.parameters import (Port, Stop, Direction, Button, Color,
                                  SoundFile, ImageFile, Align)
 
@@ -14,12 +15,19 @@ from time import sleep
 
 # Your code here
 ev3 = EV3Brick()
-steer_motor = Motor(Port.A) 
-drive_motor = Motor(Port.B)
-#turret_motor = Motor(Port.C)
+drive_motor = Motor(Port.A)     #This is the main power motor
+steer_motor = Motor(Port.B)     #This is a motor controlling steering
+
+turret_motor = Motor(Port.C)   #This is a motor controlling turret
+us_sensor = UltrasonicSensor(Port.S1)  #This is a sensor for distance measurement
+
+
 last_angle = 5 
 
 def doit(value):
+    us_sensor.distance();
+
+
     """
     Perform the specified action.
 
@@ -29,7 +37,9 @@ def doit(value):
     Returns:
         None
     """
-    ev3.speaker.say("Fire")
+
+
+    ev3.speaker.say("Distance " + str(us_sensor.distance()) + " centimeters");
 
 def quit(value):
     value.stop()                                                  
@@ -44,12 +54,13 @@ def move(value):
     Returns:
         None
     """
-    steer_motor.run(value.l_left)
+    steer_motor.run(value.l_left*2)
+    drive_motor.run(value.l_forward*20)
 
 def watch(value):
     global last_angle  
 
-    drive_motor.run(value.r_left*10)
+    turret_motor.run(value.r_left*10)
 
     """
     result = 0;
@@ -117,6 +128,14 @@ def watch(value):
     """
 
 def main():
+    """
+    remoteController = RemoteController();
+
+    remoteController.onFire(doit)
+
+    remoteController.start()
+"""
+
 
     controller = PS4Controller()
 
