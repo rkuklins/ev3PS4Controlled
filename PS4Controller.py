@@ -71,23 +71,23 @@ class PS4Controller(EventHandler, threading.Thread):
                 # Handle PS4 controller X button
                 if code == 304 and value == 1:
                     self.trigger("cross_button");
-                # Handle PS4 controller CIRCLE(305) button
-                # Handle PS4 controller SQUARE(308) button
-                # Handle PS4 controller TRIANGLE(307) button
+                # TODO: Handle PS4 controller CIRCLE(305) button
+                # TODO: Handle PS4 controller SQUARE(308) button
+                # TODO: Handle PS4 controller TRIANGLE(307) button
                     
 
-                # Handle PS4 controller L1(310) button
-                # Handle PS4 controller L2(312) button
-                # Handle PS4 controller R1(311) button
-                # Handle PS4 controller R2(313) button
+                # TODO: Handle PS4 controller L1(310) button
+                # TODO: Handle PS4 controller L2(312) button
+                # TODO: Handle PS4 controller R1(311) button
+                # TODO: Handle PS4 controller R2(313) button
 
-                # Handle PS4 controller SHARE(314) button
-                # Handle PS4 controller OPTIONS(315) button
+                # TODO: Handle PS4 controller SHARE(314) button
+                # TODO: Handle PS4 controller OPTIONS(315) button
                 if code == 315 and value == 1:
                     self.trigger("options_button");
-                # Handle PS4 controller PS(316) button
-                # Handle PS4 controller L3(317) button
-                # Handle PS4 controller R3(318) button
+                # TODO: Handle PS4 controller PS(316) button
+                # TODO: Handle PS4 controller L3(317) button
+                # TODO: Handle PS4 controller R3(318) button
                             
             # Finally, read another event
             event = in_file.read(EVENT_SIZE)
