@@ -1,3 +1,4 @@
+import math
 from EventHandler import EventHandler
 import threading
 import struct
@@ -27,6 +28,7 @@ class PS4Controller(EventHandler, threading.Thread):
         # use 'cat /proc/bus/input/devices' and look for the event file.
         infile_path = "/dev/input/event4"
 
+        #TODO: Handle case when PS4 is not connected 
         # open file in binary mode
         in_file = open(infile_path, "rb")
 
@@ -44,36 +46,51 @@ class PS4Controller(EventHandler, threading.Thread):
             # Handle PS4 controller left joystick
             if ev_type == 3 and (code <=2):
                 if(code == 1):
-                    self.l_forward = self.scale(value, (0,255), (-100,100))
+                    self.l_forward = self.scale(value, (0,255), (-1000,1000))
                 if(code == 0):
                     self.l_left = self.scale(value, (0,255), (-100,100))
-                #print("[" + str(i) + "] Before Left: " + str(value) + " after: " + str(self.left))
-                self.trigger("left_joystick");
+
+                if (abs(self.l_forward) > 10 or abs(self.l_left) > 10):
+                    self.trigger("left_joystick");
 
             #  Handle PS4 controller right joystick
-            if ev_type == 3 and code >2:
+            if ev_type == 3 and code >2 and code <16:
                 if(code == 4):
                     self.r_forward = -1* self.scale(value, (0,255), (-100,100))
                 if(code == 3):
                     self.r_left = -1 * self.scale(value, (0,255), (-100,100))
-                self.trigger("right_joystick");
+                if (abs(self.r_forward) > 10 or abs(self.r_left) > 10):
+                    self.trigger("right_joystick");
                 
 
+            #Handle the pad
+            if ev_type == 3 and code >15:
+                if(code == 16 and value == 1):
+                    self.trigger("left_arrow_pressed");
+                if(code == 16 and value == 0):
+                    self.trigger("lr_arrow_released");
+                if(code == 16 and value == 4294967295):
+                    self.trigger("right_arrow_pressed");
         
             if ev_type != 3 and ev_type != 0:
-                print("Event type %u, code %u, value %u at %d.%d" % \
+                print("Event type %u, code %i,  value %u at %d.%d" % \
                     (ev_type, code, value, tv_sec, tv_usec))
-                
+
             # Handle PS4 controller buttons
             if ev_type == 1:
-                print("Button: " + str(code) + " Value: " + str(value));
-            
+                #TODO: Change it all into case statement
                 # Handle PS4 controller X button
                 if code == 304 and value == 1:
                     self.trigger("cross_button");
-                # TODO: Handle PS4 controller CIRCLE(305) button
-                # TODO: Handle PS4 controller SQUARE(308) button
-                # TODO: Handle PS4 controller TRIANGLE(307) button
+                #Handle PS4 controller CIRCLE(305) button
+                if code == 305 and value == 1:
+                    self.trigger("triangle_button");
+                #Handle PS4 controller SQUARE(308) button
+                if code == 308 and value == 1:
+                    self.trigger("triangle_button");
+                # Handle PS4 controller TRIANGLE(307) button
+                if code == 307 and value == 1:
+                    self.trigger("triangle_button");
                     
 
                 # TODO: Handle PS4 controller L1(310) button
@@ -110,7 +127,7 @@ class PS4Controller(EventHandler, threading.Thread):
         val: float or int
         src: tuple
         dst: tuple
-    
+   
         example: print(scale(99, (0.0, 99.0), (-1.0, +1.0)))
         """
         return (float(val-src[0]) / (src[1]-src[0])) * (dst[1]-dst[0])+dst[0]
@@ -121,10 +138,14 @@ class PS4Controller(EventHandler, threading.Thread):
     def onRightJoystickMove(self, callback):
         self.on("right_joystick", callback)
 
+    def onSquareButton(self, callback):
+        self.on("square_button", callback)
 
     def onCrossButton(self, callback):
         self.on("cross_button", callback)
 
+    def onTriangleButton(self, callback):
+        self.on("triangle_button", callback)
 
     def onCircleButton(self, callback):
         self.on("circle_button", callback)
@@ -138,3 +159,13 @@ class PS4Controller(EventHandler, threading.Thread):
 
     def onOptionsButton(self, callback):
         self.on("options_button", callback)
+
+    def onLeftArrowPressed(self, callback):
+        self.on("left_arrow_pressed", callback)
+
+    def onLRArrowReleased(self, callback):
+        self.on("lr_arrow_released", callback)
+
+    def onRightArrowPressed(self, callback):
+        self.on("right_arrow_pressed", callback)
+
