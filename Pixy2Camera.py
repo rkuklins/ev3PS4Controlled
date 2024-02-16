@@ -1,12 +1,11 @@
-from pixycamev3.pixy2.py import Pixy2
+from pixycamev3.pixy2 import Pixy2
 
 class Pixy2Camera:
-    Pixy2 pixy;
+    pixy = 0;
 
 
-    def __init__(self):
+    def __init__(self, port=1):
         self.pixy = Pixy2(port=1, i2c_address=0x54)
-        self.pixy.init()
 
     def get_blocks(self):
             """
@@ -41,3 +40,7 @@ class Pixy2Camera:
 
     def close(self):
         self.pixy.close()
+
+
+    def light(self, on):
+        self.pixy.set_lamp(on,on)
