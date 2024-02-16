@@ -2,6 +2,8 @@
 
 from pybricks.hubs import EV3Brick
 from PS4Controller import PS4Controller
+from Pixy2Camera import Pixy2Camera
+#from Pixy2Camera import Pixy2Camera
 from RemoteController import RemoteController
 from pybricks.parameters import (Port, Stop, Direction, Button, Color,
                                  SoundFile, ImageFile, Align)
@@ -15,17 +17,18 @@ from time import sleep
 
 # Your code here
 ev3 = EV3Brick()
-drive_motor = Motor(Port.A)     #This is the main power motor
-steer_motor = Motor(Port.B)     #This is a motor controlling steering
+steer_motor = Motor(Port.A)     #This is the main power motor
+drive_L_motor = Motor(Port.B)     #This is a motor controlling steering
 
-turret_motor = Motor(Port.C)   #This is a motor controlling turret
-us_sensor = UltrasonicSensor(Port.S1)  #This is a sensor for distance measurement
+drive_R_motor = Motor(Port.C)   #This is a motor controlling turret
+us_sensor = UltrasonicSensor(Port.S2)  #This is a sensor for distance measurement
+pixy_camera = Pixy2Camera(Port.S1)  #This is a camera for object detection
 
 
-last_angle = 5 
+last_angle = 5
 
-def doit(value):
-    us_sensor.distance();
+def undoit(value):
+    #us_sensor.distance();
 
 
     """
@@ -38,11 +41,44 @@ def doit(value):
         None
     """
 
+    pixy_camera.light(False);
 
-    ev3.speaker.say("Distance " + str(us_sensor.distance()) + " centimeters");
+def doit(value):
+    #us_sensor.distance();
+
+
+    """
+    Perform the specified action.
+
+    Args:
+        value: The value to be used for the action.
+
+    Returns:
+        None
+    """
+
+    pixy_camera.light(True);
+    ev3.speaker.say("Hello! I am Wrack!");
 
 def quit(value):
     value.stop()                                                  
+
+
+def driftLeft(value):
+    steer_motor.run(-1000)
+    drive_L_motor.run(-1000)
+    drive_R_motor.run(1000)
+
+def driftRight(value):
+    steer_motor.run(1000)
+    drive_L_motor.run(1000)
+    drive_R_motor.run(-1000)
+
+
+def driftStop(value):
+    steer_motor.stop()
+    drive_L_motor.stop();
+    drive_R_motor.stop();
 
 def move(value): 
     """
@@ -54,13 +90,15 @@ def move(value):
     Returns:
         None
     """
-    steer_motor.run(value.l_left*2)
-    drive_motor.run(value.l_forward*20)
+
+    steer_motor.run(value.l_left)
+    drive_L_motor.run(value.l_forward)
+    drive_R_motor.run(value.l_forward)
 
 def watch(value):
     global last_angle  
 
-    turret_motor.run(value.r_left*10)
+    #turret_motor.run(value.r_left*10)
 
     """
     result = 0;
@@ -135,14 +173,20 @@ def main():
 
     remoteController.start()
 """
+    drive_L_motor.stop();
+    drive_R_motor.stop();
 
 
     controller = PS4Controller()
 
     controller.onCrossButton(doit)
+    controller.onTriangleButton(undoit)
     controller.onOptionsButton(quit)
     controller.onLeftJoystickMove(move)
-    controller.onRightJoystickMove(watch)
+    controller.onLeftArrowPressed(driftLeft)
+    controller.onRightArrowPressed(driftRight)
+    controller.onLRArrowReleased(driftStop)
+#    controller.onRightJoystickMove(watch)
     controller.start()
 
     #Wait for controller thread to finish
