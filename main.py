@@ -1,7 +1,7 @@
 #!/usr/bin/env pybricks-micropython
 
 from pybricks.hubs import EV3Brick
-from PS4Controller import PS4Controller
+from PS4Controller import MIN_JOYSTICK_MOVE, PS4Controller
 from Pixy2Camera import Pixy2Camera
 #from Pixy2Camera import Pixy2Camera
 from RemoteController import RemoteController
@@ -15,19 +15,23 @@ import sys
 import math
 from time import sleep
 
-# Your code here
+#TODO: Better understand the debug mode
+if __debug__:
+    print("Debug ON")
+else:
+    print('Debug OFF');
+
 ev3 = EV3Brick()
 steer_motor = Motor(Port.A)     #This is the main power motor
 drive_L_motor = Motor(Port.B)     #This is a motor controlling steering
-
 drive_R_motor = Motor(Port.C)   #This is a motor controlling turret
 us_sensor = UltrasonicSensor(Port.S2)  #This is a sensor for distance measurement
 pixy_camera = Pixy2Camera(Port.S1)  #This is a camera for object detection
 
 
-last_angle = 5
+#last_angle = 5
 
-def undoit(value):
+def lightoff(value):
     #us_sensor.distance();
 
 
@@ -43,7 +47,7 @@ def undoit(value):
 
     pixy_camera.light(False);
 
-def doit(value):
+def lighton(value):
     #us_sensor.distance();
 
 
@@ -58,7 +62,9 @@ def doit(value):
     """
 
     pixy_camera.light(True);
-    ev3.speaker.say("Hello! I am Wrack!");
+
+def sayit(value):
+    ev3.speaker.say("Hello, I am Wrack!")
 
 def quit(value):
     value.stop()                                                  
@@ -90,10 +96,15 @@ def move(value):
     Returns:
         None
     """
-
+    
     steer_motor.run(value.l_left)
-    drive_L_motor.run(value.l_forward)
-    drive_R_motor.run(value.l_forward)
+
+    if (abs(value.l_forward) < MIN_JOYSTICK_MOVE):
+        drive_L_motor.stop();
+        drive_R_motor.stop();
+    else:
+        drive_L_motor.run(value.l_forward)
+        drive_R_motor.run(value.l_forward)
 
 def watch(value):
     global last_angle  
@@ -165,6 +176,16 @@ def watch(value):
     last_angle = result_degrees;
     """
 
+
+def blockDetected(value):
+#    if(value.blocks == None or len(value.blocks) == 0):
+#        return;
+    block = value.blocks[0];
+
+
+
+
+
 def main():
     """
     remoteController = RemoteController();
@@ -176,11 +197,13 @@ def main():
     drive_L_motor.stop();
     drive_R_motor.stop();
 
-
     controller = PS4Controller()
 
-    controller.onCrossButton(doit)
-    controller.onTriangleButton(undoit)
+    pixy_camera.onBlockDetected(blockDetected);
+
+    controller.onL1Button(lighton)
+    controller.onR1Button(lightoff)
+    controller.onCrossButton(sayit)
     controller.onOptionsButton(quit)
     controller.onLeftJoystickMove(move)
     controller.onLeftArrowPressed(driftLeft)
@@ -188,8 +211,12 @@ def main():
     controller.onLRArrowReleased(driftStop)
 #    controller.onRightJoystickMove(watch)
     controller.start()
+    pixy_camera.start()
 
+    print ("Threads started")
     #Wait for controller thread to finish
     #controller.join()
+    #pixy_camera.join();
+
 
 main()
