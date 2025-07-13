@@ -2,9 +2,37 @@ import math
 from EventHandler import EventHandler
 import threading
 import struct
+import traceback
 from time import sleep
 
 MIN_JOYSTICK_MOVE = 15  # The minimum value of joystick move to be considered as a move
+    #const values representing particular events 
+
+#ev_type
+EV_SYN = 0;
+EV_KEY = 1;
+EV_ABS = 3;
+
+#ev_code (for ev_type == EV_KEY)
+X_BUTTON = 304;
+CIRCLE_BUTTON = 305;
+TRIANGLE_BUTTON = 307;
+SQUARE_BUTTON = 308;
+
+#ev_code (for ev_type == EV_ABS)
+LEFT_STICK_X = 0;
+LEFT_STICK_Y = 1;
+RIGHT_STICK_X = 3;
+RIGHT_STICK_Y = 4;
+L2_TRIGGER = 3;
+R2_TRIGGER = 4;
+
+
+def printIn(x,y,text):
+    #Prints text in str value in x,y coordinates on console
+    if __debug__:
+        print("\033["+str(y)+";"+str(x)+"H"+text)
+
 
 # Purpose: A class for handling PS4 controller events.
 class PS4Controller(EventHandler, threading.Thread):
@@ -15,6 +43,9 @@ class PS4Controller(EventHandler, threading.Thread):
     l_forward = 0;
     r_left = 0;
     r_forward = 0;
+
+
+
 
     # Constructor
     def __init__(self):
@@ -42,16 +73,32 @@ class PS4Controller(EventHandler, threading.Thread):
             event = in_file.read(EVENT_SIZE)
             i = 0;
             
-            print("Starting the PS4 loop...")            
+            if __debug__:
+                print("Starting the PS4 loop...")            
             while event and not self.stopped:
-                
                 (tv_sec, tv_usec, ev_type, code, value) = struct.unpack(FORMAT, event)
+
+
+                #  Handle PS4 controller right joystick
+                if ev_type == EV_ABS and (code == RIGHT_STICK_X or code == RIGHT_STICK_Y):
+                    if(code == RIGHT_STICK_Y):
+                        self.r_forward = -1* self.scale(value, (0,255), (-100,100))
+                        printIn(35,11,"Right y-axis:" + str(self.r_forward) + "   ")                        
+                    if(code == RIGHT_STICK_X):
+                        self.r_left = -1 * self.scale(value, (0,255), (-100,100))
+                        printIn(35,10,"Right x-axis:" + str(self.r_left) + "   ")   
+
+                    if (abs(self.r_forward) > 10 or abs(self.r_left) > MIN_JOYSTICK_MOVE):
+                        self.trigger("right_joystick");
+
                 # Handle PS4 controller left joystick
-                if ev_type == 3 and (code <=2):
-                    if(code == 1):
+                if ev_type == EV_ABS and (code == LEFT_STICK_X or code == LEFT_STICK_Y):
+                    if(code == LEFT_STICK_Y and value < 255):                                             
                         self.l_forward = self.scale(value, (0,255), (-1000,1000))
-                    if(code == 0):
+                        printIn(1,11,"Left y-axis:" + str(self.l_forward)+ "   ")   
+                    if(code == LEFT_STICK_X and value < 255):
                         self.l_left = self.scale(value, (0,255), (-100,100))
+                        printIn(1,10,"Left x-axis:" + str(self.l_left ) + "   ")                        
 
                     if (abs(self.l_forward) > MIN_JOYSTICK_MOVE or abs(self.l_left) > MIN_JOYSTICK_MOVE):
                         if(abs(self.l_forward) < MIN_JOYSTICK_MOVE):
@@ -60,14 +107,7 @@ class PS4Controller(EventHandler, threading.Thread):
                             self.l_left = 0;    
                         self.trigger("left_joystick");
 
-                #  Handle PS4 controller right joystick
-                if ev_type == 3 and code >2 and code <16:
-                    if(code == 4):
-                        self.r_forward = -1* self.scale(value, (0,255), (-100,100))
-                    if(code == 3):
-                        self.r_left = -1 * self.scale(value, (0,255), (-100,100))
-                    if (abs(self.r_forward) > 10 or abs(self.r_left) > MIN_JOYSTICK_MOVE):
-                        self.trigger("right_joystick");
+
 
 
                 #Handle the pad
@@ -78,9 +118,10 @@ class PS4Controller(EventHandler, threading.Thread):
                         self.trigger("lr_arrow_released");
                     if(code == 16 and value == 4294967295):
                         self.trigger("right_arrow_pressed");
-            
+
                 # Handle PS4 controller buttons
-                if ev_type == 1:
+                if ev_type == EV_KEY:
+                    printIn(1,15,"Button code:" + str(code) + "   ")
                     #TODO: Change it all into case statement
                     # Handle PS4 controller X button
                     if code == 304 and value == 1:
@@ -116,13 +157,17 @@ class PS4Controller(EventHandler, threading.Thread):
                     # TODO: Handle PS4 controller PS(316) button
                     # TODO: Handle PS4 controller L3(317) button
                     # TODO: Handle PS4 controller R3(318) button
-                            
+
+                sleep(0.01)            
                 # Finally, read another event
                 event = in_file.read(EVENT_SIZE)
+                
 
             in_file.close()
         except Exception as e:
-            print("Error occurred:", str(e))
+            if __debug__:
+                print("Error occurred:", str(e))
+                traceback.print_exc()
 
     def handle_event(self, event):
         # Override this method to handle PS4 controller events

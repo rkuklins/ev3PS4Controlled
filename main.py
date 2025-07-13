@@ -1,9 +1,34 @@
 #!/usr/bin/env pybricks-micropython
 
+"""
+EV3 PS4 Controller Robot with Graceful Device Handling
+
+This program controls an EV3 robot using a PS4 controller with robust
+device management that handles missing devices gracefully.
+
+Features:
+- Automatic device detection and initialization
+- Graceful handling of missing devices
+- Safe device operations with error handling
+- Device status reporting and debugging
+- Conditional feature activation based on device availability
+
+Device Manager:
+The DeviceManager class provides a centralized way to handle all EV3 devices
+with proper error handling. It automatically detects which devices are
+connected and provides safe access methods.
+
+Usage:
+- Devices are automatically initialized on startup
+- Use device_manager.is_device_available() to check if a device exists
+- Use device_manager.safe_device_call() for safe device operations
+- Use device_manager.safe_device_operation() for complex operations
+"""
+
 from pybricks.hubs import EV3Brick
 from PS4Controller import MIN_JOYSTICK_MOVE, PS4Controller
 from Pixy2Camera import Pixy2Camera
-#from Pixy2Camera import Pixy2Camera
+from DeviceManager import DeviceManager
 from RemoteController import RemoteController
 from pybricks.parameters import (Port, Stop, Direction, Button, Color,
                                  SoundFile, ImageFile, Align)
@@ -15,6 +40,8 @@ import sys
 import math
 from time import sleep
 
+
+
 #TODO: Better understand the debug mode
 if __debug__:
     print("Debug ON")
@@ -22,19 +49,71 @@ else:
     print('Debug OFF');
 
 ev3 = EV3Brick()
-steer_motor = Motor(Port.A)     #This is the main power motor
-drive_L_motor = Motor(Port.B)     #This is a motor controlling steering
-drive_R_motor = Motor(Port.C)   #This is a motor controlling turret
-us_sensor = UltrasonicSensor(Port.S2)  #This is a sensor for distance measurement
-pixy_camera = Pixy2Camera(Port.S1)  #This is a camera for object detection
 
+# Initialize device manager
+device_manager = DeviceManager()
+
+# Initialize devices with graceful error handling
+steer_motor = device_manager.try_init_device(Motor, Port.A, "steer_motor")
+drive_L_motor = device_manager.try_init_device(Motor, Port.B, "drive_L_motor")
+drive_R_motor = device_manager.try_init_device(Motor, Port.C, "drive_R_motor")
+turret_motor = device_manager.try_init_device(Motor, Port.D, "turret_motor")
+us_sensor = device_manager.try_init_device(UltrasonicSensor, Port.S2, "us_sensor")
+pixy_camera = device_manager.try_init_device(Pixy2Camera, Port.S1, "pixy_camera")
+
+# Print device status
+device_manager.print_device_status()
+
+def test_device_management():
+    """
+    Test function to demonstrate device management capabilities.
+    This function shows how to safely work with devices.
+    """
+    print("=== Testing Device Management ===")
+    
+    # Test individual device availability
+    print(f"Steer motor available: {device_manager.is_device_available('steer_motor')}")
+    print(f"Drive motors available: {device_manager.are_devices_available(['drive_L_motor', 'drive_R_motor'])}")
+    
+    # Test safe device calls
+    device_manager.safe_device_call("steer_motor", "stop")
+    device_manager.safe_device_call("pixy_camera", "light", True)
+    
+    # Test complex operations
+    def complex_motor_operation(motor, speed, duration):
+        """Example of a complex motor operation"""
+        motor.run(speed)
+        sleep(duration)
+        motor.stop()
+        return "Operation completed"
+    
+    result = device_manager.safe_device_operation(
+        "steer_motor", 
+        "complex_motor_test", 
+        complex_motor_operation, 
+        500,  # speed
+        1     # duration
+    )
+    
+    if result:
+        print(f"Complex operation result: {result}")
+    
+    # Get device summary
+    summary = device_manager.get_device_summary()
+    print(f"Device summary: {summary['available']}/{summary['total']} devices available")
+    
+    print("=== Device Management Test Complete ===\n")
+
+# Uncomment the line below to run device management tests
+# test_device_management()
 
 #last_angle = 5
+
+
 
 def lightoff(value):
     #us_sensor.distance();
 
-
     """
     Perform the specified action.
 
@@ -45,12 +124,11 @@ def lightoff(value):
         None
     """
 
-    pixy_camera.light(False);
+    device_manager.safe_device_call("pixy_camera", "light", False);
 
 def lighton(value):
     #us_sensor.distance();
 
-
     """
     Perform the specified action.
 
@@ -61,7 +139,7 @@ def lighton(value):
         None
     """
 
-    pixy_camera.light(True);
+    device_manager.safe_device_call("pixy_camera", "light", True);
 
 def sayit(value):
     ev3.speaker.say("Hello, I am Wrack!")
@@ -71,20 +149,26 @@ def quit(value):
 
 
 def driftLeft(value):
-    steer_motor.run(-1000)
-    drive_L_motor.run(-1000)
-    drive_R_motor.run(1000)
+    if device_manager.is_device_available("steer_motor"):
+        steer_motor.run(-1000)
+    if device_manager.is_device_available("drive_L_motor"):
+        drive_L_motor.run(-1000)
+    if device_manager.is_device_available("drive_R_motor"):
+        drive_R_motor.run(1000)
 
 def driftRight(value):
-    steer_motor.run(1000)
-    drive_L_motor.run(1000)
-    drive_R_motor.run(-1000)
+    if device_manager.is_device_available("steer_motor"):
+        steer_motor.run(1000)
+    if device_manager.is_device_available("drive_L_motor"):
+        drive_L_motor.run(1000)
+    if device_manager.is_device_available("drive_R_motor"):
+        drive_R_motor.run(-1000)
 
 
 def driftStop(value):
-    steer_motor.stop()
-    drive_L_motor.stop();
-    drive_R_motor.stop();
+    device_manager.safe_device_call("steer_motor", "stop")
+    device_manager.safe_device_call("drive_L_motor", "stop")
+    device_manager.safe_device_call("drive_R_motor", "stop")
 
 def move(value): 
     """
@@ -96,22 +180,25 @@ def move(value):
     Returns:
         None
     """
-    
-    steer_motor.run(value.l_left)
-
+    if device_manager.is_device_available("steer_motor"):
+        steer_motor.run(value.l_left*2)
+    """
     if (abs(value.l_forward) < MIN_JOYSTICK_MOVE):
         drive_L_motor.stop();
         drive_R_motor.stop();
     else:
-        drive_L_motor.run(value.l_forward)
-        drive_R_motor.run(value.l_forward)
+        drive_L_motor.run(-1*value.l_forward)
+        drive_R_motor.run(-1*value.l_forward)
+    """   
 
 def watch(value):
-    global last_angle  
-
-    #turret_motor.run(value.r_left*10)
-
+    x=0; 
     """
+    if (abs(value.r_left) < MIN_JOYSTICK_MOVE):
+        turret_motor.stop();
+    else:
+        turret_motor.run(value.r_left)
+
     result = 0;
     val_x = value.r_left * -1;
     val_y = value.r_forward;
@@ -180,8 +267,13 @@ def watch(value):
 def blockDetected(value):
 #    if(value.blocks == None or len(value.blocks) == 0):
 #        return;
+    if not device_manager.is_device_available("pixy_camera"):
+        return
+        
     block = value.blocks[0];
-
+    if(block.width > 10 or block.height > 10):
+        scale_factor = block.x_center - 150;
+        device_manager.safe_device_call("turret_motor", "run", scale_factor);
 
 
 
@@ -189,31 +281,40 @@ def blockDetected(value):
 def main():
     """
     remoteController = RemoteController();
-
     remoteController.onFire(doit)
-
     remoteController.start()
-"""
-    drive_L_motor.stop();
-    drive_R_motor.stop();
-
+    """
     controller = PS4Controller()
 
-    pixy_camera.onBlockDetected(blockDetected);
+    # Only set up pixy camera event handler if camera is available
+    if device_manager.is_device_available("pixy_camera"):
+        pixy_camera.onBlockDetected(blockDetected);
 
-    controller.onL1Button(lighton)
-    controller.onR1Button(lightoff)
-    controller.onCrossButton(sayit)
+    # Only set up light controls if pixy camera is available
+    if device_manager.is_device_available("pixy_camera"):
+        controller.onL1Button(lighton)
+        controller.onR1Button(lightoff)
+    
+    #controller.onCrossButton(sayit)
     controller.onOptionsButton(quit)
     controller.onLeftJoystickMove(move)
-    controller.onLeftArrowPressed(driftLeft)
-    controller.onRightArrowPressed(driftRight)
-    controller.onLRArrowReleased(driftStop)
-#    controller.onRightJoystickMove(watch)
+    
+    # Only set up drift controls if drive motors are available
+    if device_manager.are_devices_available(["drive_L_motor", "drive_R_motor"]):
+        controller.onLeftArrowPressed(driftLeft)
+        controller.onRightArrowPressed(driftRight)
+        controller.onLRArrowReleased(driftStop)
+        
+    controller.onRightJoystickMove(watch)
     controller.start()
-    pixy_camera.start()
-
-    print ("Threads started")
+    
+    # Only start pixy camera if available
+    if device_manager.is_device_available("pixy_camera"):
+        pixy_camera.start()
+        
+    if __debug__:
+        print ("Threads started")
+    
     #Wait for controller thread to finish
     #controller.join()
     #pixy_camera.join();
