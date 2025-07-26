@@ -140,14 +140,23 @@ class PS4Controller(EventHandler, threading.Thread):
 
 
 
-                #Handle the pad
+                #Handle the pad (D-pad)
                 if ev_type == 3 and code >15:
+                    # Handle left/right arrows (horizontal axis)
                     if(code == 16 and value == 1):
                         self.trigger("left_arrow_pressed");
                     if(code == 16 and value == 0):
                         self.trigger("lr_arrow_released");
                     if(code == 16 and value == 4294967295):
                         self.trigger("right_arrow_pressed");
+                    
+                    # Handle up/down arrows (vertical axis)
+                    if(code == 17 and value == 1):
+                        self.trigger("up_arrow_pressed");
+                    if(code == 17 and value == 0):
+                        self.trigger("ud_arrow_released");
+                    if(code == 17 and value == 4294967295):
+                        self.trigger("down_arrow_pressed");
 
                 # Handle PS4 controller buttons
                 if ev_type == EV_KEY:
@@ -261,4 +270,13 @@ class PS4Controller(EventHandler, threading.Thread):
 
     def onRightArrowPressed(self, callback):
         self.on("right_arrow_pressed", callback)
+    
+    def onUpArrowPressed(self, callback):
+        self.on("up_arrow_pressed", callback)
+
+    def onUDArrowReleased(self, callback):
+        self.on("ud_arrow_released", callback)
+
+    def onDownArrowPressed(self, callback):
+        self.on("down_arrow_pressed", callback)
 

@@ -171,6 +171,21 @@ def driftStop(value):
     tank_drive_system.stop()
     robot_is_stopped = True
 
+def moveForward(value):
+    global robot_is_stopped
+    tank_drive_system.move_forward(1000)  # Full speed forward
+    robot_is_stopped = False
+
+def moveBackward(value):
+    global robot_is_stopped
+    tank_drive_system.move_backward(1000)  # Full speed backward
+    robot_is_stopped = False
+
+def moveStop(value):
+    global robot_is_stopped
+    tank_drive_system.stop()
+    robot_is_stopped = True
+
 def move(value): 
     """
     Moves the robot based on joystick input using the TankDriveSystem.
@@ -304,11 +319,17 @@ def main():
     controller.onOptionsButton(quit)
     controller.onLeftJoystickMove(move)
     
-    # Only set up drift controls if drive motors are available
+    # Only set up arrow controls if drive motors are available
     if device_manager.are_devices_available(["drive_L_motor", "drive_R_motor"]):
+        # Left/Right arrows for drifting
         controller.onLeftArrowPressed(driftLeft)
         controller.onRightArrowPressed(driftRight)
         controller.onLRArrowReleased(driftStop)
+        
+        # Up/Down arrows for forward/backward movement
+        controller.onUpArrowPressed(moveForward)
+        controller.onDownArrowPressed(moveBackward)
+        controller.onUDArrowReleased(moveStop)
         
     controller.onRightJoystickMove(watch)
     controller.start()
@@ -319,6 +340,13 @@ def main():
         
     if __debug__:
         print ("Threads started")
+        print("=== PS4 Controller Commands ===")
+        print("Left Stick: Drive and steer")
+        print("Left/Right Arrows: Drift left/right")
+        print("Up/Down Arrows: Move forward/backward")
+        print("L1/R1: Light on/off (if camera available)")
+        print("Options: Quit")
+        print("===============================")
     
     #Wait for controller thread to finish
     #controller.join()
