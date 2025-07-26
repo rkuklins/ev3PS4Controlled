@@ -313,6 +313,48 @@ class TankDriveSystem(DriveSystem):
         if self.is_device_available(self.right_motor_name):
             self.safe_device_operation(self.right_motor_name, "run", validated_right_speed)
     
+    def joystick_control(self, forward_speed, turn_speed):
+        """
+        Control robot using joystick-style input where Y-axis controls forward/backward
+        speed and X-axis controls turning speed.
+        
+        Args:
+            forward_speed: Forward/backward speed (-1000 to 1000)
+                          Positive = forward, Negative = backward
+            turn_speed: Turning speed (-1000 to 1000)  
+                       Positive = turn right, Negative = turn left
+        """
+        # Validate inputs
+        forward_speed = self.validate_speed(forward_speed)
+        turn_speed = self.validate_speed(turn_speed)
+        
+        # If both inputs are zero, stop the robot immediately and aggressively
+        if forward_speed == 0 and turn_speed == 0:
+            self.stop()
+            # Force hard stop by setting motor speeds to 0 explicitly
+            if self.is_device_available(self.left_motor_name):
+                self.safe_device_operation(self.left_motor_name, "run", 0)
+            if self.is_device_available(self.right_motor_name): 
+                self.safe_device_operation(self.right_motor_name, "run", 0)
+            return
+        
+        # Calculate base motor speeds from forward input
+        # Negative values for forward movement (motor convention)
+        base_left = -forward_speed
+        base_right = -forward_speed
+        
+        # Add turning component
+        # For tank drive: turn by making one side faster/slower
+        turn_factor = turn_speed * 0.8  # Scale turning for better control
+        
+        left_speed = base_left - turn_factor   # Left motor: subtract for right turn
+        right_speed = base_right + turn_factor # Right motor: add for right turn
+        
+        # Debug output removed for better performance
+        
+        # Apply motor speeds
+        self.set_motor_speeds(left_speed, right_speed)
+    
     def set_default_speeds(self, drive_speed=None, turn_speed=None, drift_speed=None):
         """
         Set default speeds for various operations.

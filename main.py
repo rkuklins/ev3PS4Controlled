@@ -58,10 +58,10 @@ device_manager = DeviceManager()
 robot_is_stopped = False
 
 # Initialize devices with graceful error handling
-drive_L_motor = device_manager.try_init_device(Motor, Port.D, "drive_L_motor")
-drive_R_motor = device_manager.try_init_device(Motor, Port.B, "drive_R_motor")
-#turret_motor = device_manager.try_init_device(Motor, Port.D, "turret_motor")
-#us_sensor = device_manager.try_init_device(UltrasonicSensor, Port.S2, "us_sensor")
+drive_L_motor = device_manager.try_init_device(Motor, Port.A, "drive_L_motor")
+drive_R_motor = device_manager.try_init_device(Motor, Port.D, "drive_R_motor")
+turret_motor = device_manager.try_init_device(Motor, Port.D, "turret_motor")
+us_sensor = device_manager.try_init_device(UltrasonicSensor, Port.S2, "us_sensor")
 #pixy_camera = device_manager.try_init_device(Pixy2Camera, Port.S1, "pixy_camera")
 
 # Initialize drive system
@@ -188,28 +188,42 @@ def moveStop(value):
 
 def move(value): 
     """
-    Moves the robot based on joystick input using the TankDriveSystem.
+    Moves the robot based on joystick input using direct speed/direction control.
+    Y-axis controls forward/backward speed, X-axis controls turning speed.
 
     Args:
-        value: The joystick value containing l_left (steering) and l_forward (drive).
+        value: The joystick value containing l_left (X-axis turning) and l_forward (Y-axis movement).
 
     Returns:
         None
     """
-    # Use both steering (l_left) and drive (l_forward) inputs with proper deadzone filtering
-    drive_speed = -1 * value.l_forward if abs(value.l_forward) >= MIN_JOYSTICK_MOVE else 0
-    steer_input = value.l_left if abs(value.l_left) >= MIN_JOYSTICK_MOVE else 0
+    # Apply very aggressive deadzone filtering to prevent race conditions
+    LARGE_DEADZONE = 200  # Much larger deadzone for reliable stop detection
     
-    # Only send commands if there's actual movement to reduce event flooding
+    # Global state to prevent race conditions
     global robot_is_stopped
     
-    if drive_speed != 0 or steer_input != 0:
-        tank_drive_system.move_with_steering(drive_speed, steer_input)
-        robot_is_stopped = False
-    elif not robot_is_stopped:
-        # Only stop once when joystick returns to rest to avoid redundant stop calls
-        tank_drive_system.stop()
-        robot_is_stopped = True
+    # Apply deadzone and ensure true zero when joystick is at rest
+    if abs(value.l_forward) < LARGE_DEADZONE:
+        forward_speed = 0
+    else:
+        forward_speed = -1 * value.l_forward
+        
+    if abs(value.l_left) < LARGE_DEADZONE:
+        turn_speed = 0
+    else:
+        turn_speed = -1 * value.l_left
+    
+    # Determine if joystick is truly at rest
+    is_joystick_at_rest = (forward_speed == 0 and turn_speed == 0)
+    
+    # Debug output removed for better performance
+    
+    # Use joystick control method: Y-axis = speed, X-axis = direction
+    tank_drive_system.joystick_control(forward_speed, turn_speed)
+    
+    # Update stopped state
+    robot_is_stopped = is_joystick_at_rest
 
 def watch(value):
     x=0; 
@@ -315,21 +329,21 @@ def main():
         controller.onL1Button(lighton)
         controller.onR1Button(lightoff)
     
-    #controller.onCrossButton(sayit)
     controller.onOptionsButton(quit)
     controller.onLeftJoystickMove(move)
+    controller.onCrossButton(sayit)
     
     # Only set up arrow controls if drive motors are available
-    if device_manager.are_devices_available(["drive_L_motor", "drive_R_motor"]):
-        # Left/Right arrows for drifting
-        controller.onLeftArrowPressed(driftLeft)
-        controller.onRightArrowPressed(driftRight)
-        controller.onLRArrowReleased(driftStop)
+    #if device_manager.are_devices_available(["drive_L_motor", "drive_R_motor"]):
+    # Left/Right arrows for drifting
+    controller.onLeftArrowPressed(driftLeft)
+    controller.onRightArrowPressed(driftRight)
+    controller.onLRArrowReleased(driftStop)
         
-        # Up/Down arrows for forward/backward movement
-        controller.onUpArrowPressed(moveForward)
-        controller.onDownArrowPressed(moveBackward)
-        controller.onUDArrowReleased(moveStop)
+    # Up/Down arrows for forward/backward movement
+    controller.onUpArrowPressed(moveForward)
+    controller.onDownArrowPressed(moveBackward)
+    controller.onUDArrowReleased(moveStop)
         
     controller.onRightJoystickMove(watch)
     controller.start()
@@ -341,12 +355,19 @@ def main():
     if __debug__:
         print ("Threads started")
         print("=== PS4 Controller Commands ===")
-        print("Left Stick: Drive and steer")
+        print("Left Stick Y-axis: Forward/backward speed")
+        print("Left Stick X-axis: Turning speed left/right")
         print("Left/Right Arrows: Drift left/right")
         print("Up/Down Arrows: Move forward/backward")
+        print("Cross Button: Say hello")
         print("L1/R1: Light on/off (if camera available)")
         print("Options: Quit")
         print("===============================")
+        print("")
+        print("NOTE: If you see PS4 controller errors:")
+        print("- Pair PS4 controller with EV3 Bluetooth")
+        print("- Hold PS + Share buttons to enter pairing mode")
+        print("- Use EV3 Bluetooth menu to connect")
     
     #Wait for controller thread to finish
     #controller.join()

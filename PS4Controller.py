@@ -72,8 +72,34 @@ class PS4Controller(EventHandler, threading.Thread):
         infile_path = "/dev/input/event4"
         
         try:
+            # Check if PS4 controller device file exists
+            print("Checking for PS4 controller...")
+            
+            # Try to check if file exists (simple way for MicroPython)
+            try:
+                test_file = open(infile_path, "rb")
+                test_file.close()
+                print("PS4 controller device found at", infile_path)
+            except:
+                print("PS4 controller device not found at", infile_path)
+                print("Trying alternative paths...")
+                # Try alternative event files
+                for alt_path in ["/dev/input/event3", "/dev/input/event5", "/dev/input/event2"]:
+                    try:
+                        test_file = open(alt_path, "rb")
+                        test_file.close()
+                        infile_path = alt_path
+                        print("Found controller at", alt_path)
+                        break
+                    except:
+                        continue
+                else:
+                    raise FileNotFoundError("No PS4 controller found")
+            
+            print("Attempting to connect to PS4 controller at", infile_path)
             # open file in binary mode
             in_file = open(infile_path, "rb")
+            print("PS4 controller connected successfully!")
 
             # Read from the file
             # long int, long int, unsigned short, unsigned short, unsigned int
@@ -113,7 +139,8 @@ class PS4Controller(EventHandler, threading.Thread):
                     prev_l_left = self.l_left
                     
                     if(code == LEFT_STICK_Y and value < 255):                                             
-                        self.l_forward = self.scale(value, (0,255), (-1000,1000))
+                        # Invert Y-axis: joystick up (value=0) should give positive l_forward
+                        self.l_forward = self.scale(value, (0,255), (1000,-1000))
                         # Apply deadzone filtering immediately
                         if abs(self.l_forward) < MIN_JOYSTICK_MOVE:
                             self.l_forward = 0
@@ -126,16 +153,9 @@ class PS4Controller(EventHandler, threading.Thread):
                             self.l_left = 0
                         # printIn(1,10,"Left x-axis:" + str(self.l_left ) + "   ")                        
 
-                    # Only trigger event if there's a significant change or non-zero movement
-                    significant_change = (abs(self.l_forward - prev_l_forward) > 50 or 
-                                        abs(self.l_left - prev_l_left) > 50)
-                    has_movement = (abs(self.l_forward) > 0 or abs(self.l_left) > 0)
-                    
-                    # Throttle events to prevent flooding (max 50 Hz for joystick events)
-                    current_time = tv_sec * 1000 + tv_usec // 1000  # Convert to milliseconds
-                    if (significant_change or has_movement) and (current_time - self.last_joystick_event_time > 20):
-                        self.last_joystick_event_time = current_time
-                        self.trigger("left_joystick");
+                    # Always trigger joystick events to ensure real-time response
+                    # Remove throttling to prevent race conditions
+                    self.trigger("left_joystick");
 
 
 
@@ -160,7 +180,7 @@ class PS4Controller(EventHandler, threading.Thread):
 
                 # Handle PS4 controller buttons
                 if ev_type == EV_KEY:
-                    printIn(1,15,"Button code:" + str(code) + "   ")
+                    # Button code debug output removed for performance
                     #TODO: Change it all into case statement
                     # Handle PS4 controller X button
                     if code == 304 and value == 1:
@@ -203,10 +223,19 @@ class PS4Controller(EventHandler, threading.Thread):
                 
 
             in_file.close()
+        except FileNotFoundError:
+            print("ERROR: PS4 controller not found!")
+            print("Please ensure:")
+            print("1. PS4 controller is paired with EV3 via Bluetooth")
+            print("2. Controller is turned on and connected")
+            print("3. Check 'cat /proc/bus/input/devices' for correct event file")
+            print("Program will continue without controller input.")
+        except PermissionError:
+            print("ERROR: Permission denied accessing PS4 controller")
+            print("Try running as root or check device permissions")
         except Exception as e:
-            if __debug__:
-                print("Error occurred:", str(e))
-                # traceback.print_exc()  # Commented out due to EV3 compatibility
+            print("ERROR: PS4 controller connection failed:", str(e))
+            print("Check Bluetooth connection and try again")
 
     def handle_event(self, event):
         # Override this method to handle PS4 controller events
