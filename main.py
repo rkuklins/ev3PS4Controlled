@@ -30,7 +30,7 @@ from PS4Controller import MIN_JOYSTICK_MOVE, PS4Controller
 from Pixy2Camera import Pixy2Camera
 from DeviceManager import DeviceManager
 from RemoteController import RemoteController
-from CarDriveSystem import CarDriveSystem
+from TankDriveSystem import TankDriveSystem
 from pybricks.parameters import (Port, Stop, Direction, Button, Color,
                                  SoundFile, ImageFile, Align)
 
@@ -54,17 +54,19 @@ ev3 = EV3Brick()
 # Initialize device manager
 device_manager = DeviceManager()
 
+# Global state to avoid redundant stop calls
+robot_is_stopped = False
+
 # Initialize devices with graceful error handling
-steer_motor = device_manager.try_init_device(Motor, Port.A, "steer_motor")
-drive_L_motor = device_manager.try_init_device(Motor, Port.B, "drive_L_motor")
-drive_R_motor = device_manager.try_init_device(Motor, Port.C, "drive_R_motor")
-turret_motor = device_manager.try_init_device(Motor, Port.D, "turret_motor")
-us_sensor = device_manager.try_init_device(UltrasonicSensor, Port.S2, "us_sensor")
-pixy_camera = device_manager.try_init_device(Pixy2Camera, Port.S1, "pixy_camera")
+drive_L_motor = device_manager.try_init_device(Motor, Port.D, "drive_L_motor")
+drive_R_motor = device_manager.try_init_device(Motor, Port.B, "drive_R_motor")
+#turret_motor = device_manager.try_init_device(Motor, Port.D, "turret_motor")
+#us_sensor = device_manager.try_init_device(UltrasonicSensor, Port.S2, "us_sensor")
+#pixy_camera = device_manager.try_init_device(Pixy2Camera, Port.S1, "pixy_camera")
 
 # Initialize drive system
-car_drive_system = CarDriveSystem(device_manager)
-car_drive_system.initialize()
+tank_drive_system = TankDriveSystem(device_manager)
+tank_drive_system.initialize()
 
 # Print device status
 device_manager.print_device_status()
@@ -77,8 +79,8 @@ def test_device_management():
     print("=== Testing Device Management ===")
     
     # Test individual device availability
-    print(f"Steer motor available: {device_manager.is_device_available('steer_motor')}")
-    print(f"Drive motors available: {device_manager.are_devices_available(['drive_L_motor', 'drive_R_motor'])}")
+    print("Steer motor available: {}".format(device_manager.is_device_available('steer_motor')))
+    print("Drive motors available: {}".format(device_manager.are_devices_available(['drive_L_motor', 'drive_R_motor'])))
     
     # Test safe device calls
     device_manager.safe_device_call("steer_motor", "stop")
@@ -101,11 +103,11 @@ def test_device_management():
     )
     
     if result:
-        print(f"Complex operation result: {result}")
+        print("Complex operation result: {}".format(result))
     
     # Get device summary
     summary = device_manager.get_device_summary()
-    print(f"Device summary: {summary['available']}/{summary['total']} devices available")
+    print("Device summary: {}/{} devices available".format(summary['available'], summary['total']))
     
     print("=== Device Management Test Complete ===\n")
 
@@ -154,18 +156,24 @@ def quit(value):
 
 
 def driftLeft(value):
-    car_drive_system.drift_left(1000)
+    global robot_is_stopped
+    tank_drive_system.drift_left(1000)
+    robot_is_stopped = False
 
 def driftRight(value):
-    car_drive_system.drift_right(1000)
+    global robot_is_stopped
+    tank_drive_system.drift_right(1000)
+    robot_is_stopped = False
 
 
 def driftStop(value):
-    car_drive_system.stop()
+    global robot_is_stopped
+    tank_drive_system.stop()
+    robot_is_stopped = True
 
 def move(value): 
     """
-    Moves the robot based on joystick input using the CarDriveSystem.
+    Moves the robot based on joystick input using the TankDriveSystem.
 
     Args:
         value: The joystick value containing l_left (steering) and l_forward (drive).
@@ -173,11 +181,20 @@ def move(value):
     Returns:
         None
     """
-    # Use both steering (l_left) and drive (l_forward) inputs
+    # Use both steering (l_left) and drive (l_forward) inputs with proper deadzone filtering
     drive_speed = -1 * value.l_forward if abs(value.l_forward) >= MIN_JOYSTICK_MOVE else 0
-    steer_input = value.l_left
+    steer_input = value.l_left if abs(value.l_left) >= MIN_JOYSTICK_MOVE else 0
     
-    car_drive_system.move_with_steering(drive_speed, steer_input)
+    # Only send commands if there's actual movement to reduce event flooding
+    global robot_is_stopped
+    
+    if drive_speed != 0 or steer_input != 0:
+        tank_drive_system.move_with_steering(drive_speed, steer_input)
+        robot_is_stopped = False
+    elif not robot_is_stopped:
+        # Only stop once when joystick returns to rest to avoid redundant stop calls
+        tank_drive_system.stop()
+        robot_is_stopped = True
 
 def watch(value):
     x=0; 

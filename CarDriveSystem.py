@@ -1,5 +1,4 @@
 from DriveSystem import DriveSystem
-from typing import Optional
 from time import sleep
 
 
@@ -28,7 +27,7 @@ class CarDriveSystem(DriveSystem):
         self.default_steer_speed = 1000
         self.drift_speed = 1000
     
-    def initialize(self) -> bool:
+    def initialize(self):
         """
         Initialize the car drive system hardware.
         
@@ -50,12 +49,12 @@ class CarDriveSystem(DriveSystem):
         self._is_initialized = self.is_device_available(self.steer_motor_name)
         
         if __debug__:
-            print(f"CarDriveSystem initialized: {self._is_initialized}")
-            print(f"Available devices: {available_devices}")
+            print("CarDriveSystem initialized: {}".format(self._is_initialized))
+            print("Available devices: {}".format(available_devices))
         
         return self._is_initialized
     
-    def move_forward(self, speed: int, duration: Optional[float] = None) -> None:
+    def move_forward(self, speed, duration=None):
         """
         Move the robot forward using both drive motors.
         
@@ -75,7 +74,7 @@ class CarDriveSystem(DriveSystem):
             sleep(duration)
             self.stop_drive_motors()
     
-    def move_backward(self, speed: int, duration: Optional[float] = None) -> None:
+    def move_backward(self, speed, duration=None):
         """
         Move the robot backward using both drive motors.
         
@@ -95,7 +94,7 @@ class CarDriveSystem(DriveSystem):
             sleep(duration)
             self.stop_drive_motors()
     
-    def turn_left(self, speed: int, duration: Optional[float] = None) -> None:
+    def turn_left(self, speed, duration=None):
         """
         Turn the robot left by steering the front wheels.
         
@@ -112,7 +111,7 @@ class CarDriveSystem(DriveSystem):
             sleep(duration)
             self.stop_steering()
     
-    def turn_right(self, speed: int, duration: Optional[float] = None) -> None:
+    def turn_right(self, speed, duration=None):
         """
         Turn the robot right by steering the front wheels.
         
@@ -129,7 +128,7 @@ class CarDriveSystem(DriveSystem):
             sleep(duration)
             self.stop_steering()
     
-    def move_with_steering(self, drive_speed: int, steer_angle: int) -> None:
+    def move_with_steering(self, drive_speed, steer_angle):
         """
         Move with simultaneous drive and steering control.
         Based on the move() function from main.py.
@@ -156,7 +155,7 @@ class CarDriveSystem(DriveSystem):
         else:
             self.stop_drive_motors()
     
-    def stop(self) -> None:
+    def stop(self):
         """
         Stop all drive system movement immediately.
         Based on driftStop() function from main.py.

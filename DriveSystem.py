@@ -1,14 +1,13 @@
-from abc import ABC, abstractmethod
-from typing import Optional, Tuple
-
-
-class DriveSystem(ABC):
+class DriveSystem:
     """
-    Abstract base class for robot drive systems.
+    Base class for robot drive systems.
     
     This class defines the interface that all drive system implementations
-    must follow. It provides a standardized way to control robot movement
+    should follow. It provides a standardized way to control robot movement
     regardless of the specific drive mechanism (tank drive, mecanum, etc.).
+    
+    Note: This class serves as a template for drive system implementations.
+    All methods should be overridden in child classes.
     """
     
     def __init__(self, device_manager=None):
@@ -21,109 +20,119 @@ class DriveSystem(ABC):
         self.device_manager = device_manager
         self._is_initialized = False
     
-    @abstractmethod
     def initialize(self) -> bool:
         """
         Initialize the drive system hardware.
         
         Returns:
             bool: True if initialization was successful, False otherwise
+            
+        Note: This method should be overridden in child classes.
         """
-        pass
+        raise NotImplementedError("This method should be implemented in child classes")
     
-    @abstractmethod
-    def move_forward(self, speed: int, duration: Optional[float] = None) -> None:
+    def move_forward(self, speed, duration=None):
         """
         Move the robot forward.
         
         Args:
             speed: Speed value (implementation-specific range)
             duration: Optional duration in seconds. If None, move until stopped
+            
+        Note: This method should be overridden in child classes.
         """
-        pass
+        raise NotImplementedError("This method should be implemented in child classes")
     
-    @abstractmethod
-    def move_backward(self, speed: int, duration: Optional[float] = None) -> None:
+    def move_backward(self, speed, duration=None):
         """
         Move the robot backward.
         
         Args:
             speed: Speed value (implementation-specific range)
             duration: Optional duration in seconds. If None, move until stopped
+            
+        Note: This method should be overridden in child classes.
         """
-        pass
+        raise NotImplementedError("This method should be implemented in child classes")
     
-    @abstractmethod
-    def turn_left(self, speed: int, duration: Optional[float] = None) -> None:
+    def turn_left(self, speed, duration=None):
         """
         Turn the robot left.
         
         Args:
             speed: Speed value (implementation-specific range)
             duration: Optional duration in seconds. If None, turn until stopped
+            
+        Note: This method should be overridden in child classes.
         """
-        pass
+        raise NotImplementedError("This method should be implemented in child classes")
     
-    @abstractmethod
-    def turn_right(self, speed: int, duration: Optional[float] = None) -> None:
+    def turn_right(self, speed, duration=None):
         """
         Turn the robot right.
         
         Args:
             speed: Speed value (implementation-specific range)
             duration: Optional duration in seconds. If None, turn until stopped
+            
+        Note: This method should be overridden in child classes.
         """
-        pass
+        raise NotImplementedError("This method should be implemented in child classes")
     
-    @abstractmethod
-    def move_with_steering(self, drive_speed: int, steer_angle: int) -> None:
+    def move_with_steering(self, drive_speed, steer_angle):
         """
         Move with simultaneous drive and steering control.
         
         Args:
             drive_speed: Forward/backward speed
             steer_angle: Steering angle or turning speed
+            
+        Note: This method should be overridden in child classes.
         """
-        pass
+        raise NotImplementedError("This method should be implemented in child classes")
     
-    @abstractmethod
-    def stop(self) -> None:
+    def stop(self):
         """
         Stop all drive system movement immediately.
+        
+        Note: This method should be overridden in child classes.
         """
-        pass
+        raise NotImplementedError("This method should be implemented in child classes")
     
-    @abstractmethod
-    def drift_left(self, speed: int) -> None:
+    def drift_left(self, speed):
         """
         Perform a left drift maneuver.
         
         Args:
             speed: Speed for the drift maneuver
+            
+        Note: This method should be overridden in child classes.
         """
-        pass
+        raise NotImplementedError("This method should be implemented in child classes")
     
-    @abstractmethod
-    def drift_right(self, speed: int) -> None:
+    def drift_right(self, speed):
         """
         Perform a right drift maneuver.
         
         Args:
             speed: Speed for the drift maneuver
+            
+        Note: This method should be overridden in child classes.
         """
-        pass
+        raise NotImplementedError("This method should be implemented in child classes")
     
-    @abstractmethod
-    def get_status(self) -> dict:
+    def get_status(self):
         """
         Get current status of the drive system.
         
         Returns:
             dict: Dictionary containing status information
+            
+        Note: This method should be overridden in child classes.
         """
-        pass
+        raise NotImplementedError("This method should be implemented in child classes")
     
-    def is_initialized(self) -> bool:
+    def is_initialized(self):
         """
         Check if the drive system is properly initialized.
         
@@ -132,7 +141,7 @@ class DriveSystem(ABC):
         """
         return self._is_initialized
     
-    def validate_speed(self, speed: int, min_speed: int = -1000, max_speed: int = 1000) -> int:
+    def validate_speed(self, speed, min_speed=-1000, max_speed=1000):
         """
         Validate and clamp speed values to acceptable range.
         
@@ -146,7 +155,7 @@ class DriveSystem(ABC):
         """
         return max(min_speed, min(max_speed, speed))
     
-    def safe_device_operation(self, device_name: str, operation_name: str, *args, **kwargs):
+    def safe_device_operation(self, device_name, operation_name, *args, **kwargs):
         """
         Safely perform an operation on a device through the device manager.
         
@@ -160,12 +169,12 @@ class DriveSystem(ABC):
             Result of the operation or None if failed
         """
         if self.device_manager:
-            return self.device_manager.safe_device_operation(
+            return self.device_manager.safe_device_call(
                 device_name, operation_name, *args, **kwargs
             )
         return None
     
-    def is_device_available(self, device_name: str) -> bool:
+    def is_device_available(self, device_name):
         """
         Check if a specific device is available.
         

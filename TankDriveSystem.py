@@ -1,5 +1,4 @@
 from DriveSystem import DriveSystem
-from typing import Optional
 from time import sleep
 
 
@@ -27,8 +26,11 @@ class TankDriveSystem(DriveSystem):
         self.default_drive_speed = 1000
         self.default_turn_speed = 500
         self.drift_speed = 1000
+        
+        # Steering sensitivity for joystick control (1.0 = normal, 2.0 = aggressive)
+        self.steering_sensitivity = 2.0
     
-    def initialize(self) -> bool:
+    def initialize(self):
         """
         Initialize the tank drive system hardware.
         
@@ -49,12 +51,12 @@ class TankDriveSystem(DriveSystem):
         self._is_initialized = len(available_devices) == 2
         
         if __debug__:
-            print(f"TankDriveSystem initialized: {self._is_initialized}")
-            print(f"Available devices: {available_devices}")
+            print("TankDriveSystem initialized: {}".format(self._is_initialized))
+            print("Available devices: {}".format(available_devices))
         
         return self._is_initialized
     
-    def move_forward(self, speed: int, duration: Optional[float] = None) -> None:
+    def move_forward(self, speed, duration=None):
         """
         Move the robot forward by running both tracks at the same speed.
         
@@ -74,7 +76,7 @@ class TankDriveSystem(DriveSystem):
             sleep(duration)
             self.stop()
     
-    def move_backward(self, speed: int, duration: Optional[float] = None) -> None:
+    def move_backward(self, speed, duration=None):
         """
         Move the robot backward by running both tracks in reverse.
         
@@ -94,7 +96,7 @@ class TankDriveSystem(DriveSystem):
             sleep(duration)
             self.stop()
     
-    def turn_left(self, speed: int, duration: Optional[float] = None) -> None:
+    def turn_left(self, speed, duration=None):
         """
         Turn the robot left by running right track faster than left track.
         
@@ -104,9 +106,9 @@ class TankDriveSystem(DriveSystem):
         """
         validated_speed = self.validate_speed(speed)
         
-        # For left turn: slow down or reverse left track, maintain right track
-        left_speed = -validated_speed // 2  # Slower/reverse left track
-        right_speed = -validated_speed      # Full speed right track
+        # For aggressive left turn: reverse left track, forward right track
+        left_speed = validated_speed // 2   # Reverse left track for sharp turn
+        right_speed = -validated_speed      # Forward right track
         
         if self.is_device_available(self.left_motor_name):
             self.safe_device_operation(self.left_motor_name, "run", left_speed)
@@ -118,7 +120,7 @@ class TankDriveSystem(DriveSystem):
             sleep(duration)
             self.stop()
     
-    def turn_right(self, speed: int, duration: Optional[float] = None) -> None:
+    def turn_right(self, speed, duration=None):
         """
         Turn the robot right by running left track faster than right track.
         
@@ -128,9 +130,9 @@ class TankDriveSystem(DriveSystem):
         """
         validated_speed = self.validate_speed(speed)
         
-        # For right turn: maintain left track, slow down or reverse right track
-        left_speed = -validated_speed       # Full speed left track
-        right_speed = -validated_speed // 2 # Slower/reverse right track
+        # For aggressive right turn: forward left track, reverse right track
+        left_speed = -validated_speed       # Forward left track
+        right_speed = validated_speed // 2  # Reverse right track for sharp turn
         
         if self.is_device_available(self.left_motor_name):
             self.safe_device_operation(self.left_motor_name, "run", left_speed)
@@ -142,7 +144,7 @@ class TankDriveSystem(DriveSystem):
             sleep(duration)
             self.stop()
     
-    def move_with_steering(self, drive_speed: int, steer_angle: int) -> None:
+    def move_with_steering(self, drive_speed, steer_angle):
         """
         Move with simultaneous drive and steering control using differential steering.
         
@@ -153,23 +155,27 @@ class TankDriveSystem(DriveSystem):
         validated_drive_speed = self.validate_speed(drive_speed)
         validated_steer_angle = self.validate_speed(steer_angle)
         
-        # Calculate differential steering
-        # Base speed is the drive speed, then adjust each track based on steering
+        # Calculate aggressive differential steering for sharper turns
         base_speed = -validated_drive_speed  # Negative for forward direction
         
-        # Steering adjustment: reduce one side's speed based on turn direction
+        # Normalize steering input and increase sensitivity
         steer_factor = validated_steer_angle / 1000.0  # Normalize to -1.0 to 1.0
         
-        # Calculate left and right motor speeds
-        if steer_factor < 0:  # Turning left
-            left_speed = int(base_speed * (1 + steer_factor))   # Reduce left speed
-            right_speed = base_speed                            # Maintain right speed
-        elif steer_factor > 0:  # Turning right
-            left_speed = base_speed                             # Maintain left speed
-            right_speed = int(base_speed * (1 - steer_factor))  # Reduce right speed
-        else:  # Going straight
+        # Apply steering sensitivity multiplier for more responsive turning
+        steer_factor = max(-1.0, min(1.0, steer_factor * self.steering_sensitivity))
+        
+        # Calculate left and right motor speeds with aggressive differential  
+        if abs(steer_factor) < 0.05:  # Going straight (tighter deadzone for steering)
             left_speed = base_speed
             right_speed = base_speed
+        elif steer_factor < 0:  # Turning left
+            # For sharp left turns: slow/reverse left track, speed up right track
+            left_speed = int(base_speed * (1 + steer_factor))   # Reduce/reverse left speed
+            right_speed = int(base_speed * (1 - steer_factor/2))  # Slightly increase right speed
+        else:  # Turning right
+            # For sharp right turns: speed up left track, slow/reverse right track  
+            left_speed = int(base_speed * (1 - steer_factor/2))   # Slightly increase left speed
+            right_speed = int(base_speed * (1 + steer_factor))    # Reduce/reverse right speed
         
         # Apply speeds to motors
         if self.is_device_available(self.left_motor_name):
@@ -178,7 +184,7 @@ class TankDriveSystem(DriveSystem):
         if self.is_device_available(self.right_motor_name):
             self.safe_device_operation(self.right_motor_name, "run", right_speed)
     
-    def stop(self) -> None:
+    def stop(self):
         """
         Stop all track movement immediately.
         """
@@ -188,7 +194,7 @@ class TankDriveSystem(DriveSystem):
         if self.is_device_available(self.right_motor_name):
             self.safe_device_operation(self.right_motor_name, "stop")
     
-    def drift_left(self, speed: int) -> None:
+    def drift_left(self, speed):
         """
         Perform a left drift by running tracks in opposite directions.
         
@@ -204,7 +210,7 @@ class TankDriveSystem(DriveSystem):
         if self.is_device_available(self.right_motor_name):
             self.safe_device_operation(self.right_motor_name, "run", -validated_speed)
     
-    def drift_right(self, speed: int) -> None:
+    def drift_right(self, speed):
         """
         Perform a right drift by running tracks in opposite directions.
         
@@ -220,7 +226,7 @@ class TankDriveSystem(DriveSystem):
         if self.is_device_available(self.right_motor_name):
             self.safe_device_operation(self.right_motor_name, "run", validated_speed)
     
-    def get_status(self) -> dict:
+    def get_status(self):
         """
         Get current status of the tank drive system.
         
@@ -248,7 +254,7 @@ class TankDriveSystem(DriveSystem):
         
         return status
     
-    def pivot_left(self, speed: int, duration: Optional[float] = None) -> None:
+    def pivot_left(self, speed, duration=None):
         """
         Pivot left in place by running tracks in opposite directions.
         
@@ -269,7 +275,7 @@ class TankDriveSystem(DriveSystem):
             sleep(duration)
             self.stop()
     
-    def pivot_right(self, speed: int, duration: Optional[float] = None) -> None:
+    def pivot_right(self, speed, duration=None):
         """
         Pivot right in place by running tracks in opposite directions.
         
@@ -290,7 +296,7 @@ class TankDriveSystem(DriveSystem):
             sleep(duration)
             self.stop()
     
-    def set_motor_speeds(self, left_speed: int, right_speed: int) -> None:
+    def set_motor_speeds(self, left_speed, right_speed):
         """
         Directly set individual motor speeds for advanced control.
         
@@ -307,7 +313,7 @@ class TankDriveSystem(DriveSystem):
         if self.is_device_available(self.right_motor_name):
             self.safe_device_operation(self.right_motor_name, "run", validated_right_speed)
     
-    def set_default_speeds(self, drive_speed: int = None, turn_speed: int = None, drift_speed: int = None) -> None:
+    def set_default_speeds(self, drive_speed=None, turn_speed=None, drift_speed=None):
         """
         Set default speeds for various operations.
         
@@ -323,4 +329,14 @@ class TankDriveSystem(DriveSystem):
             self.default_turn_speed = self.validate_speed(turn_speed)
         
         if drift_speed is not None:
-            self.drift_speed = self.validate_speed(drift_speed) 
+            self.drift_speed = self.validate_speed(drift_speed)
+    
+    def set_steering_sensitivity(self, sensitivity):
+        """
+        Set the steering sensitivity for joystick control.
+        
+        Args:
+            sensitivity: Steering sensitivity multiplier 
+                        (1.0 = normal, 2.0 = aggressive, 0.5 = gentle)
+        """
+        self.steering_sensitivity = max(0.1, min(5.0, sensitivity)) 

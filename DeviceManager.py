@@ -19,13 +19,13 @@ class DeviceManager:
             self.devices[device_name] = device
             self.available_devices.append(device_name)
             if __debug__:
-                print(f"✓ {device_name} initialized on {port}")
+                print("✓ {} initialized on {}".format(device_name, port))
             return device
         except Exception as e:
             self.devices[device_name] = None
             self.missing_devices.append(device_name)
             if __debug__:
-                print(f"✗ {device_name} not found on {port}: {e}")
+                print("✗ {} not found on {}: {}".format(device_name, port, e))
             return None
     
     def init_device_with_fallback(self, device_type, port, device_name, fallback_device=None):
@@ -36,7 +36,7 @@ class DeviceManager:
         device = self.try_init_device(device_type, port, device_name)
         if device is None and fallback_device is not None:
             if __debug__:
-                print(f"Using fallback device for {device_name}")
+                print("Using fallback device for {}".format(device_name))
             self.devices[device_name] = fallback_device
             self.available_devices.append(device_name)
             return fallback_device
@@ -88,11 +88,11 @@ class DeviceManager:
                 return operation_func(device, *args, **kwargs)
             except Exception as e:
                 if __debug__:
-                    print(f"Error in {operation_name} on {device_name}: {e}")
+                    print("Error in {} on {}: {}".format(operation_name, device_name, e))
                 return None
         else:
             if __debug__:
-                print(f"Cannot perform {operation_name} - {device_name} not available")
+                print("Cannot perform {} - {} not available".format(operation_name, device_name))
             return None
     
     def print_device_status(self):
@@ -103,12 +103,12 @@ class DeviceManager:
         if self.available_devices:
             print("Available devices:")
             for device in self.available_devices:
-                print(f"  ✓ {device}")
+                print("  ✓ {}".format(device))
         
         if self.missing_devices:
             print("Missing devices:")
             for device in self.missing_devices:
-                print(f"  ✗ {device}")
+                print("  ✗ {}".format(device))
         print("==================\n")
     
     def get_device_summary(self):

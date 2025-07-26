@@ -2,10 +2,10 @@ import math
 from EventHandler import EventHandler
 import threading
 import struct
-import traceback
+# import traceback  # Commented out due to EV3 compatibility issues
 from time import sleep
 
-MIN_JOYSTICK_MOVE = 15  # The minimum value of joystick move to be considered as a move
+MIN_JOYSTICK_MOVE = 100  # The minimum value of joystick move to be considered as a move (for -1000 to 1000 range)
     #const values representing particular events 
 
 #ev_type
@@ -43,6 +43,9 @@ class PS4Controller(EventHandler, threading.Thread):
     l_forward = 0;
     r_left = 0;
     r_forward = 0;
+    
+    # Event throttling to prevent flooding
+    last_joystick_event_time = 0;
 
 
 
@@ -50,6 +53,12 @@ class PS4Controller(EventHandler, threading.Thread):
     # Constructor
     def __init__(self):
         super().__init__()
+        # Initialize joystick values to prevent first-event issues
+        self.l_left = 0
+        self.l_forward = 0
+        self.r_left = 0
+        self.r_forward = 0
+        self.last_joystick_event_time = 0
     def __str__(self):
         return "PS4 controller for EV3"; 
     
@@ -83,28 +92,49 @@ class PS4Controller(EventHandler, threading.Thread):
                 if ev_type == EV_ABS and (code == RIGHT_STICK_X or code == RIGHT_STICK_Y):
                     if(code == RIGHT_STICK_Y):
                         self.r_forward = -1* self.scale(value, (0,255), (-100,100))
-                        printIn(35,11,"Right y-axis:" + str(self.r_forward) + "   ")                        
+                        # printIn(35,11,"Right y-axis:" + str(self.r_forward) + "   ")                        
                     if(code == RIGHT_STICK_X):
                         self.r_left = -1 * self.scale(value, (0,255), (-100,100))
-                        printIn(35,10,"Right x-axis:" + str(self.r_left) + "   ")   
+                        # printIn(35,10,"Right x-axis:" + str(self.r_left) + "   ")   
 
-                    if (abs(self.r_forward) > 10 or abs(self.r_left) > MIN_JOYSTICK_MOVE):
+                    # Apply deadzone filtering to right joystick too
+                    if abs(self.r_forward) < 50:  # Increased deadzone for right joystick
+                        self.r_forward = 0
+                    if abs(self.r_left) < 50:
+                        self.r_left = 0
+                        
+                    if (abs(self.r_forward) > 0 or abs(self.r_left) > 0):
                         self.trigger("right_joystick");
 
                 # Handle PS4 controller left joystick
                 if ev_type == EV_ABS and (code == LEFT_STICK_X or code == LEFT_STICK_Y):
+                    # Store previous values to detect significant changes
+                    prev_l_forward = self.l_forward
+                    prev_l_left = self.l_left
+                    
                     if(code == LEFT_STICK_Y and value < 255):                                             
                         self.l_forward = self.scale(value, (0,255), (-1000,1000))
-                        printIn(1,11,"Left y-axis:" + str(self.l_forward)+ "   ")   
+                        # Apply deadzone filtering immediately
+                        if abs(self.l_forward) < MIN_JOYSTICK_MOVE:
+                            self.l_forward = 0
+                        # printIn(1,11,"Left y-axis:" + str(self.l_forward)+ "   ")   
+                        
                     if(code == LEFT_STICK_X and value < 255):
-                        self.l_left = self.scale(value, (0,255), (-100,100))
-                        printIn(1,10,"Left x-axis:" + str(self.l_left ) + "   ")                        
+                        self.l_left = self.scale(value, (0,255), (-1000,1000))
+                        # Apply deadzone filtering immediately
+                        if abs(self.l_left) < MIN_JOYSTICK_MOVE:
+                            self.l_left = 0
+                        # printIn(1,10,"Left x-axis:" + str(self.l_left ) + "   ")                        
 
-                    if (abs(self.l_forward) > MIN_JOYSTICK_MOVE or abs(self.l_left) > MIN_JOYSTICK_MOVE):
-                        if(abs(self.l_forward) < MIN_JOYSTICK_MOVE):
-                            self.l_forward = 0;
-                        if(abs(self.l_left) < MIN_JOYSTICK_MOVE):
-                            self.l_left = 0;    
+                    # Only trigger event if there's a significant change or non-zero movement
+                    significant_change = (abs(self.l_forward - prev_l_forward) > 50 or 
+                                        abs(self.l_left - prev_l_left) > 50)
+                    has_movement = (abs(self.l_forward) > 0 or abs(self.l_left) > 0)
+                    
+                    # Throttle events to prevent flooding (max 50 Hz for joystick events)
+                    current_time = tv_sec * 1000 + tv_usec // 1000  # Convert to milliseconds
+                    if (significant_change or has_movement) and (current_time - self.last_joystick_event_time > 20):
+                        self.last_joystick_event_time = current_time
                         self.trigger("left_joystick");
 
 
@@ -158,7 +188,7 @@ class PS4Controller(EventHandler, threading.Thread):
                     # TODO: Handle PS4 controller L3(317) button
                     # TODO: Handle PS4 controller R3(318) button
 
-                sleep(0.01)            
+                sleep(0.001)            
                 # Finally, read another event
                 event = in_file.read(EVENT_SIZE)
                 
@@ -167,7 +197,7 @@ class PS4Controller(EventHandler, threading.Thread):
         except Exception as e:
             if __debug__:
                 print("Error occurred:", str(e))
-                traceback.print_exc()
+                # traceback.print_exc()  # Commented out due to EV3 compatibility
 
     def handle_event(self, event):
         # Override this method to handle PS4 controller events
