@@ -30,6 +30,7 @@ from PS4Controller import MIN_JOYSTICK_MOVE, PS4Controller
 from Pixy2Camera import Pixy2Camera
 from DeviceManager import DeviceManager
 from RemoteController import RemoteController
+from CarDriveSystem import CarDriveSystem
 from pybricks.parameters import (Port, Stop, Direction, Button, Color,
                                  SoundFile, ImageFile, Align)
 
@@ -60,6 +61,10 @@ drive_R_motor = device_manager.try_init_device(Motor, Port.C, "drive_R_motor")
 turret_motor = device_manager.try_init_device(Motor, Port.D, "turret_motor")
 us_sensor = device_manager.try_init_device(UltrasonicSensor, Port.S2, "us_sensor")
 pixy_camera = device_manager.try_init_device(Pixy2Camera, Port.S1, "pixy_camera")
+
+# Initialize drive system
+car_drive_system = CarDriveSystem(device_manager)
+car_drive_system.initialize()
 
 # Print device status
 device_manager.print_device_status()
@@ -149,47 +154,30 @@ def quit(value):
 
 
 def driftLeft(value):
-    if device_manager.is_device_available("steer_motor"):
-        steer_motor.run(-1000)
-    if device_manager.is_device_available("drive_L_motor"):
-        drive_L_motor.run(-1000)
-    if device_manager.is_device_available("drive_R_motor"):
-        drive_R_motor.run(1000)
+    car_drive_system.drift_left(1000)
 
 def driftRight(value):
-    if device_manager.is_device_available("steer_motor"):
-        steer_motor.run(1000)
-    if device_manager.is_device_available("drive_L_motor"):
-        drive_L_motor.run(1000)
-    if device_manager.is_device_available("drive_R_motor"):
-        drive_R_motor.run(-1000)
+    car_drive_system.drift_right(1000)
 
 
 def driftStop(value):
-    device_manager.safe_device_call("steer_motor", "stop")
-    device_manager.safe_device_call("drive_L_motor", "stop")
-    device_manager.safe_device_call("drive_R_motor", "stop")
+    car_drive_system.stop()
 
 def move(value): 
     """
-    Moves the steer motor based on the provided value.
+    Moves the robot based on joystick input using the CarDriveSystem.
 
     Args:
-        value: The value to control the steer motor.
+        value: The joystick value containing l_left (steering) and l_forward (drive).
 
     Returns:
         None
     """
-    if device_manager.is_device_available("steer_motor"):
-        steer_motor.run(value.l_left*2)
-    """
-    if (abs(value.l_forward) < MIN_JOYSTICK_MOVE):
-        drive_L_motor.stop();
-        drive_R_motor.stop();
-    else:
-        drive_L_motor.run(-1*value.l_forward)
-        drive_R_motor.run(-1*value.l_forward)
-    """   
+    # Use both steering (l_left) and drive (l_forward) inputs
+    drive_speed = -1 * value.l_forward if abs(value.l_forward) >= MIN_JOYSTICK_MOVE else 0
+    steer_input = value.l_left
+    
+    car_drive_system.move_with_steering(drive_speed, steer_input)
 
 def watch(value):
     x=0; 
