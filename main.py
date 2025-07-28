@@ -60,7 +60,7 @@ robot_is_stopped = False
 # Initialize devices with graceful error handling
 drive_L_motor = device_manager.try_init_device(Motor, Port.A, "drive_L_motor")
 drive_R_motor = device_manager.try_init_device(Motor, Port.D, "drive_R_motor")
-turret_motor = device_manager.try_init_device(Motor, Port.D, "turret_motor")
+turret_motor = device_manager.try_init_device(Motor, Port.B, "turret_motor")
 us_sensor = device_manager.try_init_device(UltrasonicSensor, Port.S2, "us_sensor")
 #pixy_camera = device_manager.try_init_device(Pixy2Camera, Port.S1, "pixy_camera")
 
@@ -319,34 +319,49 @@ def main():
     remoteController.start()
     """
     controller = PS4Controller()
-
-    # Only set up pixy camera event handler if camera is available
-    if device_manager.is_device_available("pixy_camera"):
-        pixy_camera.onBlockDetected(blockDetected);
-
-    # Only set up light controls if pixy camera is available
-    if device_manager.is_device_available("pixy_camera"):
-        controller.onL1Button(lighton)
-        controller.onR1Button(lightoff)
     
-    controller.onOptionsButton(quit)
-    controller.onLeftJoystickMove(move)
-    controller.onCrossButton(sayit)
-    
-    # Only set up arrow controls if drive motors are available
-    #if device_manager.are_devices_available(["drive_L_motor", "drive_R_motor"]):
-    # Left/Right arrows for drifting
-    controller.onLeftArrowPressed(driftLeft)
-    controller.onRightArrowPressed(driftRight)
-    controller.onLRArrowReleased(driftStop)
-        
-    # Up/Down arrows for forward/backward movement
-    controller.onUpArrowPressed(moveForward)
-    controller.onDownArrowPressed(moveBackward)
-    controller.onUDArrowReleased(moveStop)
-        
-    controller.onRightJoystickMove(watch)
+    # Start the controller thread first
     controller.start()
+    
+    # Give the controller a moment to attempt connection
+    sleep(0.5)
+    
+    # Check if controller connected successfully
+    if controller.is_connected():
+        print("Setting up PS4 controller event handlers...")
+        
+        # Only set up pixy camera event handler if camera is available
+        if device_manager.is_device_available("pixy_camera"):
+            pixy_camera.onBlockDetected(blockDetected);
+
+        # Only set up light controls if pixy camera is available
+        if device_manager.is_device_available("pixy_camera"):
+            controller.onL1Button(lighton)
+            controller.onR1Button(lightoff)
+        
+        controller.onOptionsButton(quit)
+        controller.onLeftJoystickMove(move)
+        controller.onCrossButton(sayit)
+        
+        # Only set up arrow controls if drive motors are available
+        if device_manager.are_devices_available(["drive_L_motor", "drive_R_motor"]):
+            # Left/Right arrows for drifting
+            controller.onLeftArrowPressed(driftLeft)
+            controller.onRightArrowPressed(driftRight)
+            controller.onLRArrowReleased(driftStop)
+            
+            # Up/Down arrows for forward/backward movement
+            controller.onUpArrowPressed(moveForward)
+            controller.onDownArrowPressed(moveBackward)
+            controller.onUDArrowReleased(moveStop)
+        else:
+            print("Drive motors not available - arrow controls disabled")
+            
+        controller.onRightJoystickMove(watch)
+        print("PS4 controller is ready for use!")
+    else:
+        print("PS4 controller not available - program running in manual mode")
+        print("You can still use arrow buttons on the EV3 brick if available")
     
     # Only start pixy camera if available
     if device_manager.is_device_available("pixy_camera"):
@@ -354,20 +369,27 @@ def main():
         
     if __debug__:
         print ("Threads started")
-        print("=== PS4 Controller Commands ===")
-        print("Left Stick Y-axis: Forward/backward speed")
-        print("Left Stick X-axis: Turning speed left/right")
-        print("Left/Right Arrows: Drift left/right")
-        print("Up/Down Arrows: Move forward/backward")
-        print("Cross Button: Say hello")
-        print("L1/R1: Light on/off (if camera available)")
-        print("Options: Quit")
-        print("===============================")
-        print("")
-        print("NOTE: If you see PS4 controller errors:")
-        print("- Pair PS4 controller with EV3 Bluetooth")
-        print("- Hold PS + Share buttons to enter pairing mode")
-        print("- Use EV3 Bluetooth menu to connect")
+        if controller.is_connected():
+            print("=== PS4 Controller Commands ===")
+            print("Left Stick Y-axis: Forward/backward speed")
+            print("Left Stick X-axis: Turning speed left/right")
+            print("Left/Right Arrows: Drift left/right")
+            print("Up/Down Arrows: Move forward/backward")
+            print("Cross Button: Say hello")
+            print("L1/R1: Light on/off (if camera available)")
+            print("Options: Quit")
+            print("===============================")
+        else:
+            print("=== Manual Mode ===")
+            print("PS4 controller not connected")
+            print("Use EV3 brick buttons for manual control")
+            print("===============================")
+            print("")
+            print("To connect PS4 controller:")
+            print("- Pair PS4 controller with EV3 Bluetooth")
+            print("- Hold PS + Share buttons to enter pairing mode")
+            print("- Use EV3 Bluetooth menu to connect")
+            print("- Restart this program")
     
     #Wait for controller thread to finish
     #controller.join()

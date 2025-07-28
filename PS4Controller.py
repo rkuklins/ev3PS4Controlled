@@ -39,6 +39,7 @@ class PS4Controller(EventHandler, threading.Thread):
 
     # A flag for stopping the main loop of handling PS4 controller events
     stopped = False;
+    connected = False;  # Track connection status
     l_left = 0;
     l_forward = 0;
     r_left = 0;
@@ -59,6 +60,7 @@ class PS4Controller(EventHandler, threading.Thread):
         self.r_left = 0
         self.r_forward = 0
         self.last_joystick_event_time = 0
+        self.connected = False
     def __str__(self):
         return "PS4 controller for EV3"; 
     
@@ -100,6 +102,7 @@ class PS4Controller(EventHandler, threading.Thread):
             # open file in binary mode
             in_file = open(infile_path, "rb")
             print("PS4 controller connected successfully!")
+            self.connected = True  # Mark as connected
 
             # Read from the file
             # long int, long int, unsigned short, unsigned short, unsigned int
@@ -230,12 +233,15 @@ class PS4Controller(EventHandler, threading.Thread):
             print("2. Controller is turned on and connected")
             print("3. Check 'cat /proc/bus/input/devices' for correct event file")
             print("Program will continue without controller input.")
+            self.connected = False
         except PermissionError:
             print("ERROR: Permission denied accessing PS4 controller")
             print("Try running as root or check device permissions")
+            self.connected = False
         except Exception as e:
             print("ERROR: PS4 controller connection failed:", str(e))
             print("Check Bluetooth connection and try again")
+            self.connected = False
 
     def handle_event(self, event):
         # Override this method to handle PS4 controller events
@@ -243,6 +249,10 @@ class PS4Controller(EventHandler, threading.Thread):
  
     def stop(self):
         self.stopped = True;
+    
+    def is_connected(self):
+        """Check if the PS4 controller is connected and working"""
+        return self.connected
 
     # A helper function for converting stick values (0 - 255)
     # to more usable numbers (-100 - 100)6
