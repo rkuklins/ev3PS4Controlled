@@ -31,6 +31,7 @@ from Pixy2Camera import Pixy2Camera
 from DeviceManager import DeviceManager
 from RemoteController import RemoteController
 from TankDriveSystem import TankDriveSystem
+from Turret import Turret
 from pybricks.parameters import (Port, Stop, Direction, Button, Color,
                                  SoundFile, ImageFile, Align)
 
@@ -60,13 +61,16 @@ robot_is_stopped = False
 # Initialize devices with graceful error handling
 drive_L_motor = device_manager.try_init_device(Motor, Port.A, "drive_L_motor")
 drive_R_motor = device_manager.try_init_device(Motor, Port.D, "drive_R_motor")
-turret_motor = device_manager.try_init_device(Motor, Port.B, "turret_motor")
+turret_motor = device_manager.try_init_device(Motor, Port.C, "turret_motor")
 us_sensor = device_manager.try_init_device(UltrasonicSensor, Port.S2, "us_sensor")
 #pixy_camera = device_manager.try_init_device(Pixy2Camera, Port.S1, "pixy_camera")
 
 # Initialize drive system
 tank_drive_system = TankDriveSystem(device_manager)
 tank_drive_system.initialize()
+
+# Initialize turret system
+turret = Turret(device_manager)
 
 # Print device status
 device_manager.print_device_status()
@@ -114,7 +118,8 @@ def test_device_management():
 # Uncomment the line below to run device management tests
 # test_device_management()
 
-#last_angle = 5
+# Global variable for tracking turret angle
+last_angle = 0
 
 
 
@@ -152,6 +157,10 @@ def sayit(value):
     ev3.speaker.say("Hello, I am Wrack!")
 
 def quit(value):
+    # Stop turret and hold position
+    if turret:
+        turret.stop()
+    device_manager.cleanup()
     value.stop()                                                  
 
 
@@ -226,12 +235,12 @@ def move(value):
     robot_is_stopped = is_joystick_at_rest
 
 def watch(value):
-    x=0; 
-    """
-    if (abs(value.r_left) < MIN_JOYSTICK_MOVE):
-        turret_motor.stop();
-    else:
-        turret_motor.run(value.r_left)
+    """Handle right joystick movement for turret control"""
+    if turret:
+        # Map right joystick to turret position
+        # value.r_left is X-axis (-100 to 100)
+        # value.r_forward is Y-axis (-100 to 100) 
+        turret.joystick_control(value.r_left, value.r_forward)
 
     result = 0;
     val_x = value.r_left * -1;
@@ -241,6 +250,8 @@ def watch(value):
         return
     if(val_x == 0):
         return;
+    if(val_y == 0):
+        return;  # Prevent divide by zero in math.atan calculations
 
     quadrant = 1;
     if (val_x < 0 and val_y < 0):
@@ -269,32 +280,34 @@ def watch(value):
     elif(quadrant == 4):
         result_degrees = result_degrees_orig + 270
 
-    #TODO: Need to improve shift not to move by small 5 degrees move if this is a move by 30 degrees. This requries to add some intertia to the move
-    angle_shift = abs(result_degrees - last_angle);
-    speed = 360;
-    result_degrees_final = result_degrees;
-    if(angle_shift > 180):
-        if(result_degrees > last_angle):
-            diff = result_degrees - last_angle;
-            diff = diff - 360;
-            result_degrees_final = last_angle + diff;
-        else:
-            diff = result_degrees - last_angle;
-            diff = diff + 360;
-            result_degrees_final = last_angle + diff;
-
-        print("Shift is greater than 180:" + str(result_degrees_final))
-        speed = -1 * speed;
-    
-
-
-    if(angle_shift < 5):
-        return
-
-    print(str(result_degrees_final) + " from " + str(last_angle) + " shift: " + str(angle_shift) + " speed: " + str(speed))
-
-    drive_motor.track_target(result_degrees_final)
-    last_angle = result_degrees;
+    # TODO: This code is disabled - old implementation for angle tracking
+    # If re-enabling, need to define drive_motor properly
+    # 
+    # angle_shift = abs(result_degrees - last_angle);
+    # speed = 360;
+    # result_degrees_final = result_degrees;
+    # if(angle_shift > 180):
+    #     if(result_degrees > last_angle):
+    #         diff = result_degrees - last_angle;
+    #         diff = diff - 360;
+    #         result_degrees_final = last_angle + diff;
+    #     else:
+    #         diff = result_degrees - last_angle;
+    #         diff = diff + 360;
+    #         result_degrees_final = last_angle + diff;
+    # 
+    #     print("Shift is greater than 180:" + str(result_degrees_final))
+    #     speed = -1 * speed;
+    # 
+    # 
+    # if(angle_shift < 5):
+    #     return
+    # 
+    # print(str(result_degrees_final) + " from " + str(last_angle) + " shift: " + str(angle_shift) + " speed: " + str(speed))
+    # 
+    # # NOTE: drive_motor is not defined - would need to be initialized if this code is re-enabled
+    # # drive_motor.track_target(result_degrees_final)
+    # last_angle = result_degrees;
     """
 
 
@@ -310,7 +323,7 @@ def blockDetected(value):
         device_manager.safe_device_call("turret_motor", "run", scale_factor);
 
 
-
+"""
 
 def main():
     """
@@ -373,6 +386,7 @@ def main():
             print("=== PS4 Controller Commands ===")
             print("Left Stick Y-axis: Forward/backward speed")
             print("Left Stick X-axis: Turning speed left/right")
+            print("Right Stick X-axis: Turret position left/right")
             print("Left/Right Arrows: Drift left/right")
             print("Up/Down Arrows: Move forward/backward")
             print("Cross Button: Say hello")

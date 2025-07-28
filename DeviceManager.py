@@ -1,3 +1,5 @@
+from ErrorReporter import report_device_error, report_exception
+
 class DeviceManager:
     """
     Manages device initialization and provides safe access to devices.
@@ -25,6 +27,7 @@ class DeviceManager:
             self.devices[device_name] = None
             self.missing_devices.append(device_name)
             if __debug__:
+                report_device_error(device_name, "initialization", e, port)
                 print("✗ {} not found on {}: {}".format(device_name, port, e))
             return None
     
@@ -88,7 +91,8 @@ class DeviceManager:
                 return operation_func(device, *args, **kwargs)
             except Exception as e:
                 if __debug__:
-                    print("Error in {} on {}: {}".format(operation_name, device_name, e))
+                    func_name = operation_func.__name__ if hasattr(operation_func, '__name__') else str(operation_func)
+                    report_device_error(device_name, operation_name, e, "Function: {}".format(func_name))
                 return None
         else:
             if __debug__:
