@@ -136,8 +136,9 @@ class PS4Controller(EventHandler, threading.Thread):
                     if abs(self.r_left) < 50:
                         self.r_left = 0
                         
-                    if (abs(self.r_forward) > 0 or abs(self.r_left) > 0):
-                        self.trigger("right_joystick");
+                    # Always trigger right joystick events to ensure stop commands are sent
+                    # Remove throttling to prevent race conditions with turret control
+                    self.trigger("right_joystick");
 
                 # Handle PS4 controller left joystick
                 if ev_type == EV_ABS and (code == LEFT_STICK_X or code == LEFT_STICK_Y):

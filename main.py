@@ -237,10 +237,24 @@ def move(value):
 def watch(value):
     """Handle right joystick movement for turret control"""
     if turret:
-        # Map right joystick to turret position
-        # value.r_left is X-axis (-100 to 100)
-        # value.r_forward is Y-axis (-100 to 100) 
-        turret.joystick_control(value.r_left, value.r_forward)
+        # Apply aggressive deadzone filtering similar to tank drive
+        TURRET_DEADZONE = 50  # Large deadzone for reliable stop detection
+        
+        # Apply deadzone and ensure true zero when joystick is at rest
+        if abs(value.r_left) < TURRET_DEADZONE:
+            x_axis = 0
+        else:
+            x_axis = value.r_left
+            
+        if abs(value.r_forward) < TURRET_DEADZONE:
+            y_axis = 0
+        else:
+            y_axis = value.r_forward
+        
+        # Map right joystick to turret speed control
+        # x_axis: left/right rotation with speed
+        # y_axis: currently unused
+        turret.speed_control(x_axis, y_axis)
 
     result = 0;
     val_x = value.r_left * -1;
@@ -386,7 +400,7 @@ def main():
             print("=== PS4 Controller Commands ===")
             print("Left Stick Y-axis: Forward/backward speed")
             print("Left Stick X-axis: Turning speed left/right")
-            print("Right Stick X-axis: Turret position left/right")
+            print("Right Stick X-axis: Turret speed left/right")
             print("Left/Right Arrows: Drift left/right")
             print("Up/Down Arrows: Move forward/backward")
             print("Cross Button: Say hello")
