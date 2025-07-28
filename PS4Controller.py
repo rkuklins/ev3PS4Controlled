@@ -4,6 +4,7 @@ import threading
 import struct
 # import traceback  # Commented out due to EV3 compatibility issues
 from time import sleep
+from ErrorReporter import report_controller_error, report_exception
 
 MIN_JOYSTICK_MOVE = 100  # The minimum value of joystick move to be considered as a move (for -1000 to 1000 range)
     #const values representing particular events 
@@ -82,8 +83,9 @@ class PS4Controller(EventHandler, threading.Thread):
                 test_file = open(infile_path, "rb")
                 test_file.close()
                 print("PS4 controller device found at", infile_path)
-            except:
+            except Exception as e:
                 print("PS4 controller device not found at", infile_path)
+                report_controller_error("PS4Controller", "device file check", e, infile_path)
                 print("Trying alternative paths...")
                 # Try alternative event files
                 for alt_path in ["/dev/input/event3", "/dev/input/event5", "/dev/input/event2"]:
@@ -93,10 +95,12 @@ class PS4Controller(EventHandler, threading.Thread):
                         infile_path = alt_path
                         print("Found controller at", alt_path)
                         break
-                    except:
+                    except Exception as e:
+                        print("Failed to access", alt_path)
+                        report_controller_error("PS4Controller", "alternative path check", e, alt_path)
                         continue
                 else:
-                    raise FileNotFoundError("No PS4 controller found")
+                    raise OSError("No PS4 controller found")
             
             print("Attempting to connect to PS4 controller at", infile_path)
             # open file in binary mode
@@ -226,20 +230,26 @@ class PS4Controller(EventHandler, threading.Thread):
                 
 
             in_file.close()
-        except FileNotFoundError:
-            print("ERROR: PS4 controller not found!")
-            print("Please ensure:")
-            print("1. PS4 controller is paired with EV3 via Bluetooth")
-            print("2. Controller is turned on and connected")
-            print("3. Check 'cat /proc/bus/input/devices' for correct event file")
-            print("Program will continue without controller input.")
-            self.connected = False
-        except PermissionError:
-            print("ERROR: Permission denied accessing PS4 controller")
-            print("Try running as root or check device permissions")
+        except OSError as e:
+            # Handle both FileNotFoundError and PermissionError under OSError
+            error_msg = str(e)
+            report_controller_error("PS4Controller", "device access", e, infile_path)
+            if "No such file" in error_msg or "No PS4 controller found" in error_msg:
+                print("ERROR: PS4 controller not found!")
+                print("Please ensure:")
+                print("1. PS4 controller is paired with EV3 via Bluetooth")
+                print("2. Controller is turned on and connected")
+                print("3. Check 'cat /proc/bus/input/devices' for correct event file")
+                print("Program will continue without controller input.")
+            elif "Permission denied" in error_msg:
+                print("ERROR: Permission denied accessing PS4 controller")
+                print("Try running as root or check device permissions")
+            else:
+                print("ERROR: PS4 controller access failed:", error_msg)
+                print("Check device connection and permissions")
             self.connected = False
         except Exception as e:
-            print("ERROR: PS4 controller connection failed:", str(e))
+            report_exception("PS4Controller.run()", "event processing loop", e, "Main controller event loop")
             print("Check Bluetooth connection and try again")
             self.connected = False
 
@@ -266,7 +276,13 @@ class PS4Controller(EventHandler, threading.Thread):
    
         example: print(scale(99, (0.0, 99.0), (-1.0, +1.0)))
         """
-        return (float(val-src[0]) / (src[1]-src[0])) * (dst[1]-dst[0])+dst[0]
+        # Prevent divide by zero if source range is invalid
+        src_range = src[1] - src[0]
+        if src_range == 0:
+            print("Warning: Invalid source range in scale function")
+            return dst[0]  # Return destination minimum as fallback
+        
+        return (float(val-src[0]) / src_range) * (dst[1]-dst[0])+dst[0]
 
     def onLeftJoystickMove(self, callback):
         self.on("left_joystick", callback)
